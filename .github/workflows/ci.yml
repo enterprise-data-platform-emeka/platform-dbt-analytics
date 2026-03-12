@@ -57,18 +57,11 @@ jobs:
       - name: Install dbt dependencies
         run: pip install --no-cache-dir -r requirements.txt
 
-      # Create the Silver Parquet fixture directories that _sources.yml references.
-      # In a full pipeline these would be written by the Glue PySpark jobs.
-      # For CI we create empty directories so dbt can resolve sources without error.
-      # Actual data quality is validated in integration tests against a real Glue run.
+      # Generate minimal Silver Parquet fixtures so that dbt read_parquet() sources
+      # can resolve without needing a real Glue run or AWS credentials.
+      # Each table gets one valid row that satisfies all accepted_values tests.
       - name: Create Silver fixture directories
-        run: |
-          mkdir -p data/silver/dim_customer
-          mkdir -p data/silver/dim_product
-          mkdir -p data/silver/fact_orders
-          mkdir -p data/silver/fact_order_items
-          mkdir -p data/silver/fact_payments
-          mkdir -p data/silver/fact_shipments
+        run: python scripts/create_fixtures.py
 
       - name: dbt deps — download packages
         run: dbt deps --profiles-dir profiles --profile edp_analytics --target local
