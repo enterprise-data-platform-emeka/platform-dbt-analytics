@@ -57,11 +57,6 @@ jobs:
       - name: Install dbt dependencies
         run: pip install --no-cache-dir -r requirements.txt
 
-      # Generate minimal Silver Parquet fixtures so that dbt read_parquet() sources
-      # can resolve without needing a real Glue run or AWS credentials.
-      # Each table gets one valid row that satisfies all accepted_values tests.
-      - name: Create Silver fixture directories
-        run: python scripts/create_fixtures.py
 
       - name: dbt deps — download packages
         run: dbt deps --profiles-dir profiles --profile edp_analytics --target local
