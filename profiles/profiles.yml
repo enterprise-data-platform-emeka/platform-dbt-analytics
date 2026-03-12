@@ -1,24 +1,33 @@
 edp_analytics:
-  target: dev
+  target: local
   outputs:
+
+    # -------------------------------------------------------------------------
+    # local — DuckDB
+    # Reads Silver Parquet files mounted at /data/silver inside Docker.
+    # No AWS credentials needed. Used for local development and CI.
+    # -------------------------------------------------------------------------
+    local:
+      type: duckdb
+      path: /tmp/edp_analytics.duckdb
+      schema: main
+      threads: 4
+      # dbt-duckdb reads external Parquet sources when a source table defines
+      # meta.external_location in _sources.yml. No extra config needed here.
+
+    # -------------------------------------------------------------------------
+    # dev / staging / prod — Athena
+    # Reads from Glue Catalog Silver database, writes Gold tables to S3.
+    # All config is driven by environment variables injected by docker-compose.
+    # -------------------------------------------------------------------------
     dev:
       type: athena
       region_name: eu-central-1
-
-      # The Glue Catalog database that dbt writes Gold tables into.
-      # Override with DBT_ATHENA_DATABASE if you need a custom target.
       database: "{{ env_var('DBT_ATHENA_DATABASE', 'edp_dev_gold') }}"
       schema: "{{ env_var('DBT_ATHENA_SCHEMA', 'edp_dev_gold') }}"
-
-      # Athena writes query results here. Required for every query Athena runs.
       s3_staging_dir: "s3://{{ env_var('ATHENA_RESULTS_BUCKET') }}/dbt/"
-
-      # IAM profile to use for Athena + S3 + Glue API calls.
       aws_profile_name: "{{ env_var('AWS_PROFILE', 'dev-admin') }}"
-
       threads: 4
-
-      # Athena workgroup controls cost controls and result encryption.
       work_group: "{{ env_var('ATHENA_WORKGROUP', 'edp-dev-workgroup') }}"
 
     staging:

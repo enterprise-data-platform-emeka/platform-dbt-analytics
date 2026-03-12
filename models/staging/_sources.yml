@@ -125,11 +125,11 @@ sources:
           - name: order_id
             description: Foreign key to the orders table.
           - name: method
-            description: Payment method used. Expected values: credit_card, debit_card, paypal, bank_transfer.
+            description: "Payment method used. Expected values: credit_card, debit_card, paypal, bank_transfer."
           - name: amount
             description: Total payment amount in the transaction currency.
           - name: status
-            description: Payment outcome. Expected values: pending, completed, failed, refunded.
+            description: "Payment outcome. Expected values: pending, completed, failed, refunded."
           - name: payment_date
             description: Date the payment was processed.
           - name: payment_year
@@ -151,7 +151,7 @@ sources:
           - name: carrier
             description: Shipping carrier name (e.g. DHL, FedEx, UPS).
           - name: delivery_status
-            description: Current delivery state. Expected values: in_transit, delivered, failed, returned.
+            description: "Current delivery state. Expected values: in_transit, delivered, failed, returned."
           - name: shipped_date
             description: Date the package left the warehouse.
           - name: delivered_date

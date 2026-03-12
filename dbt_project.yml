@@ -23,9 +23,9 @@ clean-targets:
 # Model configurations per layer.
 #
 # Materialization strategy:
-#   staging     -> view   : always reflects latest Silver data, zero storage cost
-#   intermediate -> ephemeral : inlined into downstream SQL, no physical table created
-#   marts       -> table  : persisted Gold tables that BI tools and Redshift query
+#   staging      -> view  : always reflects latest Silver data, zero storage cost
+#   intermediate -> view  : queryable for debugging, no physical table, lazy evaluation
+#   marts        -> table : persisted Gold tables that BI tools and Redshift query
 #
 # Tags allow selective runs: `dbt run --select tag:staging`
 models:
@@ -36,7 +36,7 @@ models:
       +schema: silver
 
     intermediate:
-      +materialized: ephemeral
+      +materialized: view
       +tags: ["intermediate"]
 
     marts:

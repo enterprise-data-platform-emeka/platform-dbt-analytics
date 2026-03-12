@@ -1,5 +1,3 @@
-version: "3.9"
-
 # Two services cover the two runtime targets:
 #
 #   dbt-local  — runs dbt with DuckDB, reading Silver Parquet files from the
@@ -50,7 +48,7 @@ services:
       # Mount the dbt project.
       - .:/usr/app/dbt
       # Mount AWS credentials from the host so the container can authenticate.
-      # The profiles-aws.yml uses aws_profile_name, which reads from this file.
+      # profiles.yml uses aws_profile_name, which reads from this file.
       - ~/.aws:/home/dbt_user/.aws:ro
     environment:
       DBT_PROFILES_DIR: /usr/app/dbt/profiles

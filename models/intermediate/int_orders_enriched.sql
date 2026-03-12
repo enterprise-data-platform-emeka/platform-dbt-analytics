@@ -2,7 +2,7 @@
 --
 -- Enriches each order with customer details, payment information, and shipment
 -- tracking data. This model is materialized as ephemeral, meaning dbt inlines
--- it as a CTE into any mart that references it via {{ ref('int_orders_enriched') }}.
+-- it remains directly queryable for debugging via ref('int_orders_enriched').
 -- No physical table is created, which avoids intermediate storage costs.
 --
 -- Join strategy:

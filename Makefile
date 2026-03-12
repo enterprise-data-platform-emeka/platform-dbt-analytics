@@ -27,23 +27,23 @@ setup:
 # Run all dbt models against DuckDB using the local Silver Parquet files.
 # Downloads dbt packages first (dbt_utils, dbt_expectations) if not cached.
 run-local:
-	docker compose run --rm dbt-local \
-		bash -c "dbt deps --profiles-dir profiles --profile edp_analytics --target local \
-		         && dbt run --profiles-dir profiles --profile edp_analytics --target local"
+	docker compose run --rm --entrypoint bash dbt-local \
+		-c "dbt deps --profiles-dir profiles --profile edp_analytics --target local \
+		    && dbt run --profiles-dir profiles --profile edp_analytics --target local"
 
 # Run all dbt tests against DuckDB.
 test-local:
-	docker compose run --rm dbt-local \
-		bash -c "dbt deps --profiles-dir profiles --profile edp_analytics --target local \
-		         && dbt test --profiles-dir profiles --profile edp_analytics --target local"
+	docker compose run --rm --entrypoint bash dbt-local \
+		-c "dbt deps --profiles-dir profiles --profile edp_analytics --target local \
+		    && dbt test --profiles-dir profiles --profile edp_analytics --target local"
 
 # Generate dbt documentation and serve it at http://localhost:8080.
 # Open your browser at http://localhost:8080 after this command starts.
 docs-local:
-	docker compose run --rm --service-ports dbt-local \
-		bash -c "dbt deps --profiles-dir profiles --profile edp_analytics --target local \
-		         && dbt docs generate --profiles-dir profiles --profile edp_analytics --target local \
-		         && dbt docs serve --profiles-dir profiles --port 8080"
+	docker compose run --rm --service-ports --entrypoint bash dbt-local \
+		-c "dbt deps --profiles-dir profiles --profile edp_analytics --target local \
+		    && dbt docs generate --profiles-dir profiles --profile edp_analytics --target local \
+		    && dbt docs serve --profiles-dir profiles --port 8080"
 
 # ---------------------------------------------------------------------------
 # AWS (Athena) targets
@@ -53,15 +53,15 @@ docs-local:
 # Requires ATHENA_RESULTS_BUCKET to be set in your environment.
 # Example: ATHENA_RESULTS_BUCKET=edp-dev-123456789-athena-results make deploy ENV=dev
 deploy:
-	ENV=$(or $(ENV),dev) docker compose run --rm dbt-aws \
-		bash -c "dbt deps --profiles-dir profiles --profile edp_analytics --target $(or $(ENV),dev) \
-		         && dbt run --profiles-dir profiles --profile edp_analytics --target $(or $(ENV),dev)"
+	ENV=$(or $(ENV),dev) docker compose run --rm --entrypoint bash dbt-aws \
+		-c "dbt deps --profiles-dir profiles --profile edp_analytics --target $(or $(ENV),dev) \
+		    && dbt run --profiles-dir profiles --profile edp_analytics --target $(or $(ENV),dev)"
 
 # Run dbt tests against AWS Athena.
 test-aws:
-	ENV=$(or $(ENV),dev) docker compose run --rm dbt-aws \
-		bash -c "dbt deps --profiles-dir profiles --profile edp_analytics --target $(or $(ENV),dev) \
-		         && dbt test --profiles-dir profiles --profile edp_analytics --target $(or $(ENV),dev)"
+	ENV=$(or $(ENV),dev) docker compose run --rm --entrypoint bash dbt-aws \
+		-c "dbt deps --profiles-dir profiles --profile edp_analytics --target $(or $(ENV),dev) \
+		    && dbt test --profiles-dir profiles --profile edp_analytics --target $(or $(ENV),dev)"
 
 # ---------------------------------------------------------------------------
 # Cleanup

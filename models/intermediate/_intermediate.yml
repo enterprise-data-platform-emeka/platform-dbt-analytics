@@ -6,10 +6,10 @@ models:
   # ----------------------------------------------------------------------------
   - name: int_orders_enriched
     description: >
-      Ephemeral model that enriches each order with customer details, payment
+      Intermediate view that enriches each order with customer details, payment
       information, and shipment tracking. This model is the backbone of the
-      finance marts. Because it is ephemeral, dbt inlines it as a CTE into any
-      downstream model that references it, so no physical table is created.
+      finance marts. Materialized as a view so no physical table is created but
+      it remains directly queryable for debugging.
       All joins are LEFT JOIN so orders without a matching payment or shipment
       record are still included (e.g. cancelled orders before payment was taken).
     columns:
@@ -81,10 +81,10 @@ models:
   # ----------------------------------------------------------------------------
   - name: int_product_sales
     description: >
-      Ephemeral model that joins order line items with product catalogue details.
+      Intermediate view that joins order line items with product catalogue details.
       This gives each line item row the full product context (name, category, brand)
-      needed for aggregation in the product performance mart. Ephemeral means no
-      physical table, just a CTE inlined into mart models.
+      needed for aggregation in the product performance mart. Materialized as a view
+      so no physical table is created but it remains directly queryable for debugging.
     columns:
       - name: order_item_id
         description: Primary key inherited from stg_order_items.

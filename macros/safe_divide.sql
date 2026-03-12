@@ -9,9 +9,6 @@
 -- Both DuckDB and Athena (Presto/Trino) support standard CASE WHEN syntax,
 -- so this macro works on both targets without modification.
 
-{% macro safe_divide(numerator, denominator) %}
-    case
-        when {{ denominator }} = 0 then null
-        else {{ numerator }} / {{ denominator }}
-    end
-{% endmacro %}
+{% macro safe_divide(numerator, denominator) -%}
+    {{ numerator }} / nullif({{ denominator }}, 0)
+{%- endmacro %}
