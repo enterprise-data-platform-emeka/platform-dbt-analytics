@@ -1,140 +1,86 @@
 version: 2
 
 models:
-  # ----------------------------------------------------------------------------
-  # fct_orders
-  # ----------------------------------------------------------------------------
-  - name: fct_orders
+  - name: revenue_by_country
     description: >
-      Gold-layer fact table. One row per order with the full revenue and
-      fulfilment context needed by finance and operations reporting. This is the
-      primary table for order-level analysis: revenue by country, fulfilment
-      rate by carrier, cancellation rates by period, etc.
-      Materialized as a table in the Gold Glue Catalog database so Redshift
-      Serverless, Athena, and BI tools can all query it directly.
+      Answers: "Which countries generate the most revenue?"
+      One row per country. Aggregates completed orders only, showing total
+      orders, unique customers, total revenue, and average order value.
+      Ordered by total revenue descending so the highest-value markets
+      appear first.
     columns:
-      - name: order_id
-        description: Primary key. Unique identifier for each order.
-        data_tests:
-          - not_null
-          - unique
-
-      - name: customer_id
-        description: Foreign key to dim_customers.
-        data_tests:
-          - not_null
-
-      - name: first_name
-        description: Customer's given name at time of order.
-
-      - name: last_name
-        description: Customer's family name at time of order.
-
-      - name: email
-        description: Customer email address at time of order.
-
       - name: country
-        description: Customer's country (lowercased) at time of order.
-
-      - name: order_date
-        description: Date the order was placed.
-        data_tests:
+        description: Customer country derived from stg_customers via int_orders_enriched.
+        tests:
           - not_null
-
-      - name: order_status
-        description: Final lifecycle status of the order.
-        data_tests:
+      - name: total_orders
+        description: Count of distinct completed orders from this country.
+        tests:
           - not_null
-          - accepted_values:
-              values: ["pending", "processing", "shipped", "delivered", "cancelled", "returned"]
-
-      - name: payment_amount
-        description: Total payment amount. Null for orders with no payment record.
-
-      - name: payment_status
-        description: Payment outcome. Null for orders with no payment record.
-        data_tests:
-          - accepted_values:
-              values: ["pending", "completed", "failed", "refunded"]
-              where: "payment_status is not null"
-
-      - name: payment_method
-        description: Payment method used. Null for orders with no payment record.
-
-      - name: delivery_status
-        description: Current delivery state. Null for unshipped orders.
-
-      - name: carrier
-        description: Shipping carrier. Null for unshipped orders.
-
-      - name: delivery_days
-        description: Calendar days from dispatch to delivery. Null if not yet delivered.
-
-      - name: order_year
-        description: Partition column. Year the order was placed.
-        data_tests:
+      - name: total_customers
+        description: Count of distinct customers who placed completed orders from this country.
+        tests:
           - not_null
+      - name: total_revenue
+        description: Sum of payment_amount for completed orders from this country.
+      - name: avg_order_value
+        description: total_revenue divided by total_orders. Null-safe via nullif.
 
-      - name: order_month
-        description: Partition column. Month the order was placed (1-12).
-        data_tests:
-          - not_null
-
-  # ----------------------------------------------------------------------------
-  # fct_payments
-  # ----------------------------------------------------------------------------
-  - name: fct_payments
+  - name: monthly_revenue_trend
     description: >
-      Gold-layer fact table. One row per payment record. Used by finance for
-      payment method analysis, failure rate monitoring, and refund tracking.
-      Intentionally kept narrow — revenue rollups belong in fct_orders.
+      Answers: "How is revenue trending month over month?"
+      One row per year-month combination. Covers all orders regardless of
+      payment status so cancelled orders are visible alongside revenue,
+      giving a complete picture of order volume and cancellation patterns
+      over time.
     columns:
-      - name: payment_id
-        description: Primary key. Unique identifier for each payment record.
-        data_tests:
+      - name: order_year
+        description: Four-digit year extracted from order_date.
+        tests:
           - not_null
-          - unique
-
-      - name: order_id
-        description: Foreign key to fct_orders.
-        data_tests:
+      - name: order_month
+        description: Numeric month (1-12) extracted from order_date.
+        tests:
           - not_null
-          - relationships:
-              to: ref('fct_orders')
-              field: order_id
+      - name: total_orders
+        description: Count of distinct orders placed in this year-month.
+        tests:
+          - not_null
+      - name: unique_customers
+        description: Count of distinct customers who ordered in this year-month.
+        tests:
+          - not_null
+      - name: total_revenue
+        description: Sum of payment_amount for all orders in this year-month.
+      - name: cancelled_orders
+        description: Count of orders with order_status = 'cancelled' in this year-month.
 
+  - name: payment_method_performance
+    description: >
+      Answers: "Which payment methods succeed and which fail?"
+      One row per payment method. Shows transaction counts broken down by
+      status (completed, failed, refunded), a success rate percentage, total
+      amount processed, and revenue actually captured (completed only).
+      Sourced directly from stg_payments so it reflects every transaction
+      regardless of order context.
+    columns:
       - name: payment_method
-        description: Payment method used.
-        data_tests:
+        description: Payment method used (e.g. credit_card, paypal, bank_transfer).
+        tests:
           - not_null
-          - accepted_values:
-              values: ["credit_card", "debit_card", "paypal", "bank_transfer"]
-
-      - name: amount
-        description: Total payment amount.
-        data_tests:
+      - name: total_transactions
+        description: Total number of payment attempts for this method.
+        tests:
           - not_null
-          - assert_positive_value:
-              column_name: amount
-
-      - name: payment_status
-        description: Payment outcome.
-        data_tests:
-          - not_null
-          - accepted_values:
-              values: ["pending", "completed", "failed", "refunded"]
-
-      - name: payment_date
-        description: Date the payment was processed.
-        data_tests:
-          - not_null
-
-      - name: payment_year
-        description: Partition column. Year the payment was processed.
-        data_tests:
-          - not_null
-
-      - name: payment_month
-        description: Partition column. Month the payment was processed (1-12).
-        data_tests:
-          - not_null
+      - name: successful
+        description: Count of transactions with payment_status = 'completed'.
+      - name: failed
+        description: Count of transactions with payment_status = 'failed'.
+      - name: refunded
+        description: Count of transactions with payment_status = 'refunded'.
+      - name: success_rate_pct
+        description: Percentage of transactions that completed successfully, rounded to 1 decimal.
+      - name: total_processed
+        description: Sum of amount across all transactions for this payment method.
+      - name: revenue_captured
+        description: Sum of amount for completed transactions only.

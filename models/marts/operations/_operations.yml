@@ -1,0 +1,36 @@
+version: 2
+
+models:
+  - name: carrier_delivery_performance
+    description: >
+      Answers: "How do shipping carriers compare on delivery speed and reliability?"
+      One row per carrier. Shows total shipments, delivered and failed counts,
+      delivery success rate as a percentage, and delivery time statistics
+      (average, fastest, slowest) calculated only over successfully delivered
+      shipments. Ordered by delivery success rate descending so the most
+      reliable carriers appear first.
+    columns:
+      - name: carrier
+        description: Name of the shipping carrier (e.g. FedEx, UPS, DHL).
+        tests:
+          - not_null
+      - name: total_shipments
+        description: Total number of shipments handled by this carrier.
+        tests:
+          - not_null
+      - name: delivered
+        description: Count of shipments with delivery_status = 'delivered'.
+        tests:
+          - not_null
+      - name: failed
+        description: Count of shipments with delivery_status = 'failed'.
+        tests:
+          - not_null
+      - name: delivery_success_rate_pct
+        description: Percentage of shipments successfully delivered, rounded to 1 decimal.
+      - name: avg_delivery_days
+        description: Average number of days to deliver, calculated over delivered shipments only. Rounded to 1 decimal.
+      - name: fastest_delivery_days
+        description: Minimum delivery days among successfully delivered shipments.
+      - name: slowest_delivery_days
+        description: Maximum delivery days among successfully delivered shipments.

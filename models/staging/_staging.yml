@@ -115,7 +115,7 @@ models:
         data_tests:
           - not_null
           - accepted_values:
-              values: ["pending", "processing", "shipped", "delivered", "cancelled", "returned"]
+              values: ["pending", "confirmed", "shipped", "delivered", "cancelled"]
 
       - name: order_year
         description: Partition column. Year the order was placed.
@@ -281,7 +281,7 @@ models:
         data_tests:
           - not_null
           - accepted_values:
-              values: ["in_transit", "delivered", "failed", "returned"]
+              values: ["pending", "in_transit", "delivered", "failed"]
 
       - name: shipped_date
         description: Date the package left the warehouse.

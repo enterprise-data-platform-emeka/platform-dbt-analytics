@@ -14,7 +14,7 @@
 #   make test-aws ENV=staging   Run dbt tests against AWS Athena (staging environment)
 #   make clean                  Remove compiled artifacts and DuckDB database file
 
-.PHONY: setup run-local test-local docs-local deploy test-aws clean
+.PHONY: setup run-local test-local docs-local query deploy test-aws clean
 
 # Build the Docker image. Re-run this after changing requirements.txt or Dockerfile.
 setup:
@@ -43,7 +43,28 @@ docs-local:
 	docker compose run --rm --service-ports --entrypoint bash dbt-local \
 		-c "dbt deps --profiles-dir profiles --profile edp_analytics --target local \
 		    && dbt docs generate --profiles-dir profiles --profile edp_analytics --target local \
-		    && dbt docs serve --profiles-dir profiles --port 8080"
+		    && dbt docs serve --profiles-dir profiles --port 8080 --host 0.0.0.0"
+
+# ---------------------------------------------------------------------------
+# Interactive query shell
+# ---------------------------------------------------------------------------
+
+# Open an interactive DuckDB Python shell against the local Gold database.
+# The variable `conn` is pre-connected. Run SQL with: conn.sql("SELECT ...").show()
+#
+# Sample queries:
+#   conn.sql("SELECT * FROM gold.fct_orders LIMIT 10").show()
+#   conn.sql("SELECT * FROM gold.dim_customers ORDER BY lifetime_value DESC LIMIT 10").show()
+#   conn.sql("SELECT * FROM gold.fct_product_performance ORDER BY total_revenue DESC LIMIT 10").show()
+#   conn.sql("SELECT * FROM gold.fct_payments LIMIT 10").show()
+query:
+	docker compose run --rm -it --entrypoint python dbt-local -c \
+		"import duckdb, code; \
+		 conn = duckdb.connect('/tmp/edp_analytics.duckdb'); \
+		 print('\n=== Gold layer tables ==='); \
+		 conn.sql('SHOW TABLES').show(); \
+		 print('\nRun SQL with: conn.sql(\"SELECT ...\").show()\n'); \
+		 code.interact(banner='', local=dict(conn=conn))"
 
 # ---------------------------------------------------------------------------
 # AWS (Athena) targets

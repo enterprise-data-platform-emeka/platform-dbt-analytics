@@ -1,67 +1,68 @@
 version: 2
 
 models:
-  # ----------------------------------------------------------------------------
-  # fct_product_performance
-  # ----------------------------------------------------------------------------
-  - name: fct_product_performance
+  - name: product_category_performance
     description: >
-      Gold-layer fact table. One row per product per month with aggregated sales
-      metrics. This is the primary table for product analytics: top sellers by
-      revenue, category trends over time, brand performance comparisons.
-      The `avg_unit_revenue` column uses the safe_divide macro to avoid division
-      by zero on products with zero units sold in a given period.
+      Answers: "Which product categories and brands drive the most revenue?"
+      One row per category-brand combination. Aggregates order count, unique
+      product count, units sold, total revenue, and average revenue per unit
+      from int_product_sales. Ordered by total revenue descending.
+    columns:
+      - name: category
+        description: Product category (e.g. Electronics, Clothing).
+        tests:
+          - not_null
+      - name: brand
+        description: Product brand within the category.
+        tests:
+          - not_null
+      - name: total_orders
+        description: Count of distinct orders containing products in this category-brand.
+        tests:
+          - not_null
+      - name: products_in_category
+        description: Count of distinct products sold within this category-brand combination.
+      - name: total_units_sold
+        description: Sum of quantity across all order items in this category-brand.
+        tests:
+          - not_null
+      - name: total_revenue
+        description: Sum of line_total for all order items in this category-brand.
+      - name: avg_revenue_per_unit
+        description: total_revenue divided by total_units_sold. Null-safe via nullif.
+
+  - name: top_selling_products
+    description: >
+      Answers: "Which specific products sell the most?"
+      One row per product. Shows order count, units sold, total revenue,
+      average revenue per unit, and a revenue rank (rank 1 = highest revenue).
+      Sourced from int_product_sales which already carries product attributes
+      (name, category, brand) alongside line-level sales figures.
     columns:
       - name: product_id
-        description: Product identifier. Part of the composite primary key (product_id + order_year + order_month).
-        data_tests:
+        description: Unique identifier for the product.
+        tests:
           - not_null
-
+          - unique
       - name: product_name
-        description: Product display name.
-        data_tests:
+        description: Display name of the product.
+        tests:
           - not_null
-
       - name: category
-        description: Top-level product category.
-        data_tests:
+        description: Product category.
+        tests:
           - not_null
-
       - name: brand
-        description: Brand name for the product.
-
-      - name: order_year
-        description: Aggregation period (year). Part of the composite primary key.
-        data_tests:
+        description: Product brand.
+        tests:
           - not_null
-
-      - name: order_month
-        description: Aggregation period (month, 1-12). Part of the composite primary key.
-        data_tests:
-          - not_null
-
       - name: total_orders
-        description: Count of distinct orders that included this product in this period.
-        data_tests:
-          - not_null
-          - assert_positive_value:
-              column_name: total_orders
-
+        description: Count of distinct orders that included this product.
       - name: total_units_sold
-        description: Total quantity of this product sold across all orders in this period.
-        data_tests:
-          - not_null
-          - assert_positive_value:
-              column_name: total_units_sold
-
+        description: Total quantity of this product sold across all orders.
       - name: total_revenue
-        description: Sum of all line_total values for this product in this period.
-        data_tests:
-          - not_null
-          - assert_positive_value:
-              column_name: total_revenue
-
-      - name: avg_unit_revenue
-        description: >
-          Average revenue per unit sold (total_revenue / total_units_sold).
-          Null if total_units_sold is zero (safe_divide macro prevents division by zero).
+        description: Sum of line_total for this product across all orders.
+      - name: avg_revenue_per_unit
+        description: total_revenue divided by total_units_sold. Null-safe via nullif.
+      - name: revenue_rank
+        description: Dense rank ordered by total_revenue descending. Rank 1 is the highest-revenue product.

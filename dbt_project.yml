@@ -51,3 +51,6 @@ models:
       customer:
         +tags: ["customer"]
         +schema: gold
+      operations:
+        +tags: ["operations"]
+        +schema: gold
