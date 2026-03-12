@@ -30,7 +30,7 @@ sources:
           Customer master records sourced from the PostgreSQL OLTP system via
           DMS (Database Migration Service) CDC (Change Data Capture). One row per customer.
         meta:
-          external_location: "read_parquet('/data/silver/dim_customer/**/*.parquet', hive_partitioning=true)"
+          external_location: "read_parquet('{{ env_var('DBT_SILVER_PATH', '/data/silver') }}/dim_customer/**/*.parquet', hive_partitioning=true)"
         columns:
           - name: customer_id
             description: Surrogate primary key for the customer. Unique, never null.
@@ -51,7 +51,7 @@ sources:
         description: >
           Product catalogue sourced from the OLTP system. One row per product SKU.
         meta:
-          external_location: "read_parquet('/data/silver/dim_product/**/*.parquet', hive_partitioning=true)"
+          external_location: "read_parquet('{{ env_var('DBT_SILVER_PATH', '/data/silver') }}/dim_product/**/*.parquet', hive_partitioning=true)"
         columns:
           - name: product_id
             description: Surrogate primary key for the product.
@@ -71,7 +71,7 @@ sources:
           Order header records. One row per order. Partitioned by order_year and
           order_month for efficient Athena partition pruning.
         meta:
-          external_location: "read_parquet('/data/silver/fact_orders/**/*.parquet', hive_partitioning=true)"
+          external_location: "read_parquet('{{ env_var('DBT_SILVER_PATH', '/data/silver') }}/fact_orders/**/*.parquet', hive_partitioning=true)"
         columns:
           - name: order_id
             description: Surrogate primary key for the order.
@@ -93,7 +93,7 @@ sources:
           Order line items. One row per product per order. Partitioned by
           order_year and order_month to align with the orders partition scheme.
         meta:
-          external_location: "read_parquet('/data/silver/fact_order_items/**/*.parquet', hive_partitioning=true)"
+          external_location: "read_parquet('{{ env_var('DBT_SILVER_PATH', '/data/silver') }}/fact_order_items/**/*.parquet', hive_partitioning=true)"
         columns:
           - name: order_item_id
             description: Surrogate primary key for the order line item.
@@ -118,7 +118,7 @@ sources:
           multiple payment records if an initial attempt failed. Partitioned by
           payment_year and payment_month.
         meta:
-          external_location: "read_parquet('/data/silver/fact_payments/**/*.parquet', hive_partitioning=true)"
+          external_location: "read_parquet('{{ env_var('DBT_SILVER_PATH', '/data/silver') }}/fact_payments/**/*.parquet', hive_partitioning=true)"
         columns:
           - name: payment_id
             description: Surrogate primary key for the payment record.
@@ -142,7 +142,7 @@ sources:
           Shipment records tracking physical fulfilment of orders. One row per
           shipment. Partitioned by shipped_year and shipped_month.
         meta:
-          external_location: "read_parquet('/data/silver/fact_shipments/**/*.parquet', hive_partitioning=true)"
+          external_location: "read_parquet('{{ env_var('DBT_SILVER_PATH', '/data/silver') }}/fact_shipments/**/*.parquet', hive_partitioning=true)"
         columns:
           - name: shipment_id
             description: Surrogate primary key for the shipment record.

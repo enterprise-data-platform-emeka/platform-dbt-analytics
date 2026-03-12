@@ -44,6 +44,9 @@ jobs:
     name: dbt local (DuckDB)
     runs-on: ubuntu-latest
     needs: build
+    env:
+      DBT_PROFILES_DIR: profiles
+      DBT_SILVER_PATH: data/silver
 
     steps:
       - name: Checkout repository
@@ -60,23 +63,15 @@ jobs:
 
       - name: dbt deps — download packages
         run: dbt deps --profiles-dir profiles --profile edp_analytics --target local
-        env:
-          DBT_PROFILES_DIR: profiles
 
       - name: dbt run — compile and execute models
         run: dbt run --profiles-dir profiles --profile edp_analytics --target local
-        env:
-          DBT_PROFILES_DIR: profiles
 
       - name: dbt test — run all data quality tests
         run: dbt test --profiles-dir profiles --profile edp_analytics --target local
-        env:
-          DBT_PROFILES_DIR: profiles
 
       - name: dbt docs generate — build documentation site
         run: dbt docs generate --profiles-dir profiles --profile edp_analytics --target local
-        env:
-          DBT_PROFILES_DIR: profiles
 
       - name: Upload dbt artifacts
         uses: actions/upload-artifact@v4
