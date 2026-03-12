@@ -1,0 +1,74 @@
+version: "3.9"
+
+# Two services cover the two runtime targets:
+#
+#   dbt-local  — runs dbt with DuckDB, reading Silver Parquet files from the
+#                local filesystem. No AWS credentials needed. Good for development
+#                and CI runs that don't need live AWS data.
+#
+#   dbt-aws    — runs dbt with Athena, reading from the Glue Catalog and writing
+#                Gold tables to S3. Requires AWS environment variables or a
+#                mounted ~/.aws/credentials file.
+
+services:
+
+  # ---------------------------------------------------------------------------
+  # dbt-local: DuckDB target
+  # ---------------------------------------------------------------------------
+  dbt-local:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: edp-dbt:local
+    volumes:
+      # Mount the dbt project so changes are picked up without rebuilding.
+      - .:/usr/app/dbt
+      # Mount the Silver Parquet data produced by Glue (or the local simulator).
+      # The path inside the container must match the external_location in _sources.yml.
+      - ../platform-glue-jobs/data/silver:/data/silver:ro
+      # DuckDB writes its database file here. /tmp avoids writing into the
+      # project directory.
+      - /tmp:/tmp
+    environment:
+      # Tell dbt where to find the profiles file.
+      DBT_PROFILES_DIR: /usr/app/dbt/profiles
+      DBT_PROFILE: edp_analytics
+      DBT_TARGET: local
+    # Default command: show help. Override in Makefile or CLI.
+    command: ["--help"]
+    working_dir: /usr/app/dbt
+
+  # ---------------------------------------------------------------------------
+  # dbt-aws: Athena target
+  # ---------------------------------------------------------------------------
+  dbt-aws:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: edp-dbt:aws
+    volumes:
+      # Mount the dbt project.
+      - .:/usr/app/dbt
+      # Mount AWS credentials from the host so the container can authenticate.
+      # The profiles-aws.yml uses aws_profile_name, which reads from this file.
+      - ~/.aws:/home/dbt_user/.aws:ro
+    environment:
+      DBT_PROFILES_DIR: /usr/app/dbt/profiles
+      DBT_PROFILE: edp_analytics
+      # Target environment: dev, staging, or prod. Override with: ENV=staging make deploy
+      DBT_TARGET: ${ENV:-dev}
+
+      # Silver and Gold Glue database names. These follow the edp_<env>_<layer> convention.
+      DBT_SILVER_DATABASE: ${DBT_SILVER_DATABASE:-edp_dev_silver}
+      DBT_SILVER_SCHEMA: ${DBT_SILVER_SCHEMA:-edp_dev_silver}
+      DBT_ATHENA_DATABASE: ${DBT_ATHENA_DATABASE:-edp_dev_gold}
+      DBT_ATHENA_SCHEMA: ${DBT_ATHENA_SCHEMA:-edp_dev_gold}
+
+      # The Athena results bucket is account-specific so it must be provided at runtime.
+      ATHENA_RESULTS_BUCKET: ${ATHENA_RESULTS_BUCKET}
+
+      # AWS profile and Athena workgroup for the target environment.
+      AWS_PROFILE: ${AWS_PROFILE:-dev-admin}
+      ATHENA_WORKGROUP: ${ATHENA_WORKGROUP:-edp-dev-workgroup}
+    command: ["--help"]
+    working_dir: /usr/app/dbt

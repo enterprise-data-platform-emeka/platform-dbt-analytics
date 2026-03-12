@@ -1,0 +1,120 @@
+version: 2
+
+models:
+  # ----------------------------------------------------------------------------
+  # int_orders_enriched
+  # ----------------------------------------------------------------------------
+  - name: int_orders_enriched
+    description: >
+      Ephemeral model that enriches each order with customer details, payment
+      information, and shipment tracking. This model is the backbone of the
+      finance marts. Because it is ephemeral, dbt inlines it as a CTE into any
+      downstream model that references it, so no physical table is created.
+      All joins are LEFT JOIN so orders without a matching payment or shipment
+      record are still included (e.g. cancelled orders before payment was taken).
+    columns:
+      - name: order_id
+        description: Primary key inherited from stg_orders.
+
+      - name: customer_id
+        description: Foreign key to stg_customers.
+
+      - name: order_date
+        description: Date the order was placed.
+
+      - name: order_status
+        description: Current lifecycle status of the order.
+
+      - name: order_year
+        description: Partition column from stg_orders.
+
+      - name: order_month
+        description: Partition column from stg_orders.
+
+      - name: first_name
+        description: Customer's given name from stg_customers.
+
+      - name: last_name
+        description: Customer's family name from stg_customers.
+
+      - name: email
+        description: Customer email address from stg_customers.
+
+      - name: country
+        description: Customer's country (lowercased) from stg_customers.
+
+      - name: payment_id
+        description: Payment record primary key from stg_payments. Null for unpaid orders.
+
+      - name: payment_method
+        description: Payment method used. Null for unpaid orders.
+
+      - name: payment_amount
+        description: Total payment amount. Null for unpaid orders.
+
+      - name: payment_status
+        description: Payment outcome. Null for unpaid orders.
+
+      - name: payment_date
+        description: Date the payment was processed. Null for unpaid orders.
+
+      - name: shipment_id
+        description: Shipment record primary key from stg_shipments. Null for unshipped orders.
+
+      - name: carrier
+        description: Shipping carrier name. Null for unshipped orders.
+
+      - name: delivery_status
+        description: Delivery state. Null for unshipped orders.
+
+      - name: shipped_date
+        description: Date the package left the warehouse. Null for unshipped orders.
+
+      - name: delivered_date
+        description: Date the package was delivered. Null if not yet delivered.
+
+      - name: delivery_days
+        description: Calendar days between dispatch and delivery. Null if not yet delivered.
+
+  # ----------------------------------------------------------------------------
+  # int_product_sales
+  # ----------------------------------------------------------------------------
+  - name: int_product_sales
+    description: >
+      Ephemeral model that joins order line items with product catalogue details.
+      This gives each line item row the full product context (name, category, brand)
+      needed for aggregation in the product performance mart. Ephemeral means no
+      physical table, just a CTE inlined into mart models.
+    columns:
+      - name: order_item_id
+        description: Primary key inherited from stg_order_items.
+
+      - name: order_id
+        description: Foreign key to stg_orders.
+
+      - name: order_year
+        description: Partition column from stg_order_items.
+
+      - name: order_month
+        description: Partition column from stg_order_items.
+
+      - name: quantity
+        description: Number of units ordered for this line item.
+
+      - name: unit_price
+        description: Price per unit at time of purchase.
+
+      - name: line_total
+        description: Total value for this line item (quantity * unit_price).
+
+      - name: product_id
+        description: Foreign key to stg_products.
+
+      - name: product_name
+        description: Product display name from stg_products.
+
+      - name: category
+        description: Top-level product category from stg_products.
+
+      - name: brand
+        description: Brand name from stg_products.

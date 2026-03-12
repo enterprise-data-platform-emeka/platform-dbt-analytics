@@ -1,0 +1,307 @@
+version: 2
+
+models:
+  # ----------------------------------------------------------------------------
+  # stg_customers
+  # ----------------------------------------------------------------------------
+  - name: stg_customers
+    description: >
+      Staging model for customer records. Selects and lightly transforms columns
+      from the Silver customers source. Country is lowercased for consistency.
+      No business logic lives here — that belongs in intermediate or mart models.
+    columns:
+      - name: customer_id
+        description: Primary key. Unique identifier for each customer.
+        data_tests:
+          - not_null
+          - unique
+
+      - name: first_name
+        description: Customer's given name.
+        data_tests:
+          - not_null
+
+      - name: last_name
+        description: Customer's family name.
+        data_tests:
+          - not_null
+
+      - name: email
+        description: Customer email address. Unique natural key from the source system.
+        data_tests:
+          - not_null
+          - unique
+
+      - name: country
+        description: Customer's country of residence, lowercased.
+
+      - name: phone
+        description: Customer's phone number. May be null.
+
+      - name: signup_date
+        description: Date the customer account was created, cast to date type.
+        data_tests:
+          - not_null
+
+  # ----------------------------------------------------------------------------
+  # stg_products
+  # ----------------------------------------------------------------------------
+  - name: stg_products
+    description: >
+      Staging model for product catalogue records. Renames `name` to
+      `product_name` for clarity downstream. No filtering or aggregation.
+    columns:
+      - name: product_id
+        description: Primary key. Unique identifier for each product SKU.
+        data_tests:
+          - not_null
+          - unique
+
+      - name: product_name
+        description: Display name of the product (renamed from `name` in Silver).
+        data_tests:
+          - not_null
+
+      - name: category
+        description: Top-level product category.
+        data_tests:
+          - not_null
+
+      - name: brand
+        description: Brand name for the product.
+
+      - name: unit_price
+        description: Current list price per unit.
+        data_tests:
+          - not_null
+          - assert_positive_value:
+              column_name: unit_price
+
+      - name: stock_qty
+        description: Current inventory quantity on hand. May be zero for out-of-stock items.
+        data_tests:
+          - not_null
+
+  # ----------------------------------------------------------------------------
+  # stg_orders
+  # ----------------------------------------------------------------------------
+  - name: stg_orders
+    description: >
+      Staging model for order header records. Passes through all columns from
+      Silver with no transformation. Partition columns (order_year, order_month)
+      are retained for downstream partition pruning.
+    columns:
+      - name: order_id
+        description: Primary key. Unique identifier for each order.
+        data_tests:
+          - not_null
+          - unique
+
+      - name: customer_id
+        description: Foreign key to stg_customers.
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('stg_customers')
+              field: customer_id
+
+      - name: order_date
+        description: Date the order was placed.
+        data_tests:
+          - not_null
+
+      - name: order_status
+        description: Current lifecycle status of the order.
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: ["pending", "processing", "shipped", "delivered", "cancelled", "returned"]
+
+      - name: order_year
+        description: Partition column. Year the order was placed.
+        data_tests:
+          - not_null
+
+      - name: order_month
+        description: Partition column. Month the order was placed (1-12).
+        data_tests:
+          - not_null
+
+  # ----------------------------------------------------------------------------
+  # stg_order_items
+  # ----------------------------------------------------------------------------
+  - name: stg_order_items
+    description: >
+      Staging model for order line items. One row per product per order.
+      The `line_total` column is pre-computed by the Glue Silver job (quantity * unit_price)
+      and passed through without recalculation.
+    columns:
+      - name: order_item_id
+        description: Primary key. Unique identifier for each order line item.
+        data_tests:
+          - not_null
+          - unique
+
+      - name: order_id
+        description: Foreign key to stg_orders.
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('stg_orders')
+              field: order_id
+
+      - name: product_id
+        description: Foreign key to stg_products.
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('stg_products')
+              field: product_id
+
+      - name: quantity
+        description: Number of units ordered for this line item.
+        data_tests:
+          - not_null
+          - assert_positive_value:
+              column_name: quantity
+
+      - name: unit_price
+        description: Price per unit at the time of purchase.
+        data_tests:
+          - not_null
+          - assert_positive_value:
+              column_name: unit_price
+
+      - name: line_total
+        description: Total value for this line item (quantity * unit_price). Pre-computed by Glue.
+        data_tests:
+          - not_null
+          - assert_positive_value:
+              column_name: line_total
+
+      - name: order_year
+        description: Partition column. Year the order was placed.
+        data_tests:
+          - not_null
+
+      - name: order_month
+        description: Partition column. Month the order was placed (1-12).
+        data_tests:
+          - not_null
+
+  # ----------------------------------------------------------------------------
+  # stg_payments
+  # ----------------------------------------------------------------------------
+  - name: stg_payments
+    description: >
+      Staging model for payment transactions. Renames `method` to `payment_method`
+      and `status` to `payment_status` to avoid ambiguity when joined with other
+      tables that also have a `status` column.
+    columns:
+      - name: payment_id
+        description: Primary key. Unique identifier for each payment record.
+        data_tests:
+          - not_null
+          - unique
+
+      - name: order_id
+        description: Foreign key to stg_orders.
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('stg_orders')
+              field: order_id
+
+      - name: payment_method
+        description: Payment method used (renamed from `method`).
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: ["credit_card", "debit_card", "paypal", "bank_transfer"]
+
+      - name: amount
+        description: Total payment amount.
+        data_tests:
+          - not_null
+          - assert_positive_value:
+              column_name: amount
+
+      - name: payment_status
+        description: Payment outcome (renamed from `status`).
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: ["pending", "completed", "failed", "refunded"]
+
+      - name: payment_date
+        description: Date the payment was processed.
+        data_tests:
+          - not_null
+
+      - name: payment_year
+        description: Partition column. Year the payment was processed.
+        data_tests:
+          - not_null
+
+      - name: payment_month
+        description: Partition column. Month the payment was processed (1-12).
+        data_tests:
+          - not_null
+
+  # ----------------------------------------------------------------------------
+  # stg_shipments
+  # ----------------------------------------------------------------------------
+  - name: stg_shipments
+    description: >
+      Staging model for shipment records tracking physical fulfilment of orders.
+      The `delivery_days` column is pre-computed by the Glue Silver job and passed
+      through as-is. It will be null for shipments not yet delivered.
+    columns:
+      - name: shipment_id
+        description: Primary key. Unique identifier for each shipment record.
+        data_tests:
+          - not_null
+          - unique
+
+      - name: order_id
+        description: Foreign key to stg_orders.
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('stg_orders')
+              field: order_id
+
+      - name: carrier
+        description: Shipping carrier name.
+        data_tests:
+          - not_null
+
+      - name: delivery_status
+        description: Current delivery state of the shipment.
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: ["in_transit", "delivered", "failed", "returned"]
+
+      - name: shipped_date
+        description: Date the package left the warehouse.
+        data_tests:
+          - not_null
+
+      - name: delivered_date
+        description: Date the package was delivered. Null if delivery is still pending.
+
+      - name: delivery_days
+        description: >
+          Calendar days between shipped_date and delivered_date.
+          Pre-computed by the Glue Silver job. Null for undelivered shipments.
+
+      - name: shipped_year
+        description: Partition column. Year the shipment was dispatched.
+        data_tests:
+          - not_null
+
+      - name: shipped_month
+        description: Partition column. Month the shipment was dispatched (1-12).
+        data_tests:
+          - not_null

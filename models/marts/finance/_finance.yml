@@ -1,0 +1,140 @@
+version: 2
+
+models:
+  # ----------------------------------------------------------------------------
+  # fct_orders
+  # ----------------------------------------------------------------------------
+  - name: fct_orders
+    description: >
+      Gold-layer fact table. One row per order with the full revenue and
+      fulfilment context needed by finance and operations reporting. This is the
+      primary table for order-level analysis: revenue by country, fulfilment
+      rate by carrier, cancellation rates by period, etc.
+      Materialized as a table in the Gold Glue Catalog database so Redshift
+      Serverless, Athena, and BI tools can all query it directly.
+    columns:
+      - name: order_id
+        description: Primary key. Unique identifier for each order.
+        data_tests:
+          - not_null
+          - unique
+
+      - name: customer_id
+        description: Foreign key to dim_customers.
+        data_tests:
+          - not_null
+
+      - name: first_name
+        description: Customer's given name at time of order.
+
+      - name: last_name
+        description: Customer's family name at time of order.
+
+      - name: email
+        description: Customer email address at time of order.
+
+      - name: country
+        description: Customer's country (lowercased) at time of order.
+
+      - name: order_date
+        description: Date the order was placed.
+        data_tests:
+          - not_null
+
+      - name: order_status
+        description: Final lifecycle status of the order.
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: ["pending", "processing", "shipped", "delivered", "cancelled", "returned"]
+
+      - name: payment_amount
+        description: Total payment amount. Null for orders with no payment record.
+
+      - name: payment_status
+        description: Payment outcome. Null for orders with no payment record.
+        data_tests:
+          - accepted_values:
+              values: ["pending", "completed", "failed", "refunded"]
+              where: "payment_status is not null"
+
+      - name: payment_method
+        description: Payment method used. Null for orders with no payment record.
+
+      - name: delivery_status
+        description: Current delivery state. Null for unshipped orders.
+
+      - name: carrier
+        description: Shipping carrier. Null for unshipped orders.
+
+      - name: delivery_days
+        description: Calendar days from dispatch to delivery. Null if not yet delivered.
+
+      - name: order_year
+        description: Partition column. Year the order was placed.
+        data_tests:
+          - not_null
+
+      - name: order_month
+        description: Partition column. Month the order was placed (1-12).
+        data_tests:
+          - not_null
+
+  # ----------------------------------------------------------------------------
+  # fct_payments
+  # ----------------------------------------------------------------------------
+  - name: fct_payments
+    description: >
+      Gold-layer fact table. One row per payment record. Used by finance for
+      payment method analysis, failure rate monitoring, and refund tracking.
+      Intentionally kept narrow — revenue rollups belong in fct_orders.
+    columns:
+      - name: payment_id
+        description: Primary key. Unique identifier for each payment record.
+        data_tests:
+          - not_null
+          - unique
+
+      - name: order_id
+        description: Foreign key to fct_orders.
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('fct_orders')
+              field: order_id
+
+      - name: payment_method
+        description: Payment method used.
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: ["credit_card", "debit_card", "paypal", "bank_transfer"]
+
+      - name: amount
+        description: Total payment amount.
+        data_tests:
+          - not_null
+          - assert_positive_value:
+              column_name: amount
+
+      - name: payment_status
+        description: Payment outcome.
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: ["pending", "completed", "failed", "refunded"]
+
+      - name: payment_date
+        description: Date the payment was processed.
+        data_tests:
+          - not_null
+
+      - name: payment_year
+        description: Partition column. Year the payment was processed.
+        data_tests:
+          - not_null
+
+      - name: payment_month
+        description: Partition column. Month the payment was processed (1-12).
+        data_tests:
+          - not_null

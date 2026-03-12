@@ -1,0 +1,30 @@
+# dbt artifacts
+dbt_packages/
+target/
+logs/
+
+# DuckDB database files
+*.duckdb
+*.duckdb.wal
+
+# dbt user config
+.user.yml
+
+# Environment variables
+.env
+.env.*
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# macOS
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+*.swp

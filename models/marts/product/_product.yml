@@ -1,0 +1,67 @@
+version: 2
+
+models:
+  # ----------------------------------------------------------------------------
+  # fct_product_performance
+  # ----------------------------------------------------------------------------
+  - name: fct_product_performance
+    description: >
+      Gold-layer fact table. One row per product per month with aggregated sales
+      metrics. This is the primary table for product analytics: top sellers by
+      revenue, category trends over time, brand performance comparisons.
+      The `avg_unit_revenue` column uses the safe_divide macro to avoid division
+      by zero on products with zero units sold in a given period.
+    columns:
+      - name: product_id
+        description: Product identifier. Part of the composite primary key (product_id + order_year + order_month).
+        data_tests:
+          - not_null
+
+      - name: product_name
+        description: Product display name.
+        data_tests:
+          - not_null
+
+      - name: category
+        description: Top-level product category.
+        data_tests:
+          - not_null
+
+      - name: brand
+        description: Brand name for the product.
+
+      - name: order_year
+        description: Aggregation period (year). Part of the composite primary key.
+        data_tests:
+          - not_null
+
+      - name: order_month
+        description: Aggregation period (month, 1-12). Part of the composite primary key.
+        data_tests:
+          - not_null
+
+      - name: total_orders
+        description: Count of distinct orders that included this product in this period.
+        data_tests:
+          - not_null
+          - assert_positive_value:
+              column_name: total_orders
+
+      - name: total_units_sold
+        description: Total quantity of this product sold across all orders in this period.
+        data_tests:
+          - not_null
+          - assert_positive_value:
+              column_name: total_units_sold
+
+      - name: total_revenue
+        description: Sum of all line_total values for this product in this period.
+        data_tests:
+          - not_null
+          - assert_positive_value:
+              column_name: total_revenue
+
+      - name: avg_unit_revenue
+        description: >
+          Average revenue per unit sold (total_revenue / total_units_sold).
+          Null if total_units_sold is zero (safe_divide macro prevents division by zero).

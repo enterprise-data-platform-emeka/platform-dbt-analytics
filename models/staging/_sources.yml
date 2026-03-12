@@ -1,0 +1,166 @@
+version: 2
+
+sources:
+  # ----------------------------------------------------------------------------
+  # Silver layer: cleaned, deduplicated Parquet data produced by Glue PySpark jobs.
+  #
+  # Two targets are supported:
+  #
+  #   local (DuckDB)
+  #     dbt-duckdb reads the `meta.external_location` on each table and calls
+  #     DuckDB's read_parquet() function directly. The Parquet files are mounted
+  #     into the Docker container at /data/silver/.
+  #
+  #   dev / staging / prod (Athena)
+  #     dbt-athena ignores `meta.external_location` and uses the `database` and
+  #     `schema` keys to look up tables in the AWS Glue Data Catalog. The Silver
+  #     Glue database is named edp_<env>_silver.
+  # ----------------------------------------------------------------------------
+  - name: silver
+    description: >
+      Silver layer data produced by Glue PySpark jobs. Each table has been
+      cleaned, type-cast, deduplicated, and partitioned by year/month. This is
+      the input layer for all dbt staging models.
+    database: "{{ env_var('DBT_SILVER_DATABASE', 'edp_dev_silver') }}"
+    schema: "{{ env_var('DBT_SILVER_SCHEMA', 'edp_dev_silver') }}"
+
+    tables:
+      - name: customers
+        description: >
+          Customer master records sourced from the PostgreSQL OLTP system via
+          DMS (Database Migration Service) CDC (Change Data Capture). One row per customer.
+        meta:
+          external_location: "read_parquet('/data/silver/dim_customer/**/*.parquet', hive_partitioning=true)"
+        columns:
+          - name: customer_id
+            description: Surrogate primary key for the customer. Unique, never null.
+          - name: first_name
+            description: Customer's given name.
+          - name: last_name
+            description: Customer's family name.
+          - name: email
+            description: Customer email address. Used as a natural key in the source system.
+          - name: country
+            description: Customer's country of residence. Raw mixed-case string from source.
+          - name: phone
+            description: Customer's phone number. May be null if not captured at signup.
+          - name: signup_date
+            description: Date the customer account was created in the source system.
+
+      - name: products
+        description: >
+          Product catalogue sourced from the OLTP system. One row per product SKU.
+        meta:
+          external_location: "read_parquet('/data/silver/dim_product/**/*.parquet', hive_partitioning=true)"
+        columns:
+          - name: product_id
+            description: Surrogate primary key for the product.
+          - name: name
+            description: Product display name.
+          - name: category
+            description: Top-level product category (e.g. Electronics, Clothing).
+          - name: brand
+            description: Brand name for the product.
+          - name: unit_price
+            description: Current list price per unit. Stored as a decimal.
+          - name: stock_qty
+            description: Current inventory quantity on hand.
+
+      - name: orders
+        description: >
+          Order header records. One row per order. Partitioned by order_year and
+          order_month for efficient Athena partition pruning.
+        meta:
+          external_location: "read_parquet('/data/silver/fact_orders/**/*.parquet', hive_partitioning=true)"
+        columns:
+          - name: order_id
+            description: Surrogate primary key for the order.
+          - name: customer_id
+            description: Foreign key to the customers table.
+          - name: order_date
+            description: Date the order was placed.
+          - name: order_status
+            description: >
+              Current status of the order. Expected values: pending, processing,
+              shipped, delivered, cancelled, returned.
+          - name: order_year
+            description: Partition column. Year the order was placed.
+          - name: order_month
+            description: Partition column. Month the order was placed (1-12).
+
+      - name: order_items
+        description: >
+          Order line items. One row per product per order. Partitioned by
+          order_year and order_month to align with the orders partition scheme.
+        meta:
+          external_location: "read_parquet('/data/silver/fact_order_items/**/*.parquet', hive_partitioning=true)"
+        columns:
+          - name: order_item_id
+            description: Surrogate primary key for the order line item.
+          - name: order_id
+            description: Foreign key to the orders table.
+          - name: product_id
+            description: Foreign key to the products table.
+          - name: quantity
+            description: Number of units ordered for this line item.
+          - name: unit_price
+            description: Price per unit at the time of purchase. May differ from current list price.
+          - name: line_total
+            description: Total value of this line item (quantity * unit_price). Pre-computed by Glue.
+          - name: order_year
+            description: Partition column. Year the order was placed.
+          - name: order_month
+            description: Partition column. Month the order was placed (1-12).
+
+      - name: payments
+        description: >
+          Payment transactions. One row per payment attempt. An order may have
+          multiple payment records if an initial attempt failed. Partitioned by
+          payment_year and payment_month.
+        meta:
+          external_location: "read_parquet('/data/silver/fact_payments/**/*.parquet', hive_partitioning=true)"
+        columns:
+          - name: payment_id
+            description: Surrogate primary key for the payment record.
+          - name: order_id
+            description: Foreign key to the orders table.
+          - name: method
+            description: Payment method used. Expected values: credit_card, debit_card, paypal, bank_transfer.
+          - name: amount
+            description: Total payment amount in the transaction currency.
+          - name: status
+            description: Payment outcome. Expected values: pending, completed, failed, refunded.
+          - name: payment_date
+            description: Date the payment was processed.
+          - name: payment_year
+            description: Partition column. Year the payment was processed.
+          - name: payment_month
+            description: Partition column. Month the payment was processed (1-12).
+
+      - name: shipments
+        description: >
+          Shipment records tracking physical fulfilment of orders. One row per
+          shipment. Partitioned by shipped_year and shipped_month.
+        meta:
+          external_location: "read_parquet('/data/silver/fact_shipments/**/*.parquet', hive_partitioning=true)"
+        columns:
+          - name: shipment_id
+            description: Surrogate primary key for the shipment record.
+          - name: order_id
+            description: Foreign key to the orders table.
+          - name: carrier
+            description: Shipping carrier name (e.g. DHL, FedEx, UPS).
+          - name: delivery_status
+            description: Current delivery state. Expected values: in_transit, delivered, failed, returned.
+          - name: shipped_date
+            description: Date the package left the warehouse.
+          - name: delivered_date
+            description: Date the package was delivered. Null if not yet delivered.
+          - name: delivery_days
+            description: >
+              Number of calendar days between shipped_date and delivered_date.
+              Pre-computed by the Glue Silver job. Null if delivery is pending.
+          - name: shipped_year
+            description: Partition column. Year the shipment was dispatched.
+          - name: shipped_month
+            description: Partition column. Month the shipment was dispatched (1-12).

@@ -1,0 +1,42 @@
+edp_analytics:
+  target: dev
+  outputs:
+    dev:
+      type: athena
+      region_name: eu-central-1
+
+      # The Glue Catalog database that dbt writes Gold tables into.
+      # Override with DBT_ATHENA_DATABASE if you need a custom target.
+      database: "{{ env_var('DBT_ATHENA_DATABASE', 'edp_dev_gold') }}"
+      schema: "{{ env_var('DBT_ATHENA_SCHEMA', 'edp_dev_gold') }}"
+
+      # Athena writes query results here. Required for every query Athena runs.
+      s3_staging_dir: "s3://{{ env_var('ATHENA_RESULTS_BUCKET') }}/dbt/"
+
+      # IAM profile to use for Athena + S3 + Glue API calls.
+      aws_profile_name: "{{ env_var('AWS_PROFILE', 'dev-admin') }}"
+
+      threads: 4
+
+      # Athena workgroup controls cost controls and result encryption.
+      work_group: "{{ env_var('ATHENA_WORKGROUP', 'edp-dev-workgroup') }}"
+
+    staging:
+      type: athena
+      region_name: eu-central-1
+      database: "{{ env_var('DBT_ATHENA_DATABASE', 'edp_staging_gold') }}"
+      schema: "{{ env_var('DBT_ATHENA_SCHEMA', 'edp_staging_gold') }}"
+      s3_staging_dir: "s3://{{ env_var('ATHENA_RESULTS_BUCKET') }}/dbt/"
+      aws_profile_name: "{{ env_var('AWS_PROFILE', 'staging-admin') }}"
+      threads: 4
+      work_group: "{{ env_var('ATHENA_WORKGROUP', 'edp-staging-workgroup') }}"
+
+    prod:
+      type: athena
+      region_name: eu-central-1
+      database: "{{ env_var('DBT_ATHENA_DATABASE', 'edp_prod_gold') }}"
+      schema: "{{ env_var('DBT_ATHENA_SCHEMA', 'edp_prod_gold') }}"
+      s3_staging_dir: "s3://{{ env_var('ATHENA_RESULTS_BUCKET') }}/dbt/"
+      aws_profile_name: "{{ env_var('AWS_PROFILE', 'prod-admin') }}"
+      threads: 4
+      work_group: "{{ env_var('ATHENA_WORKGROUP', 'edp-prod-workgroup') }}"

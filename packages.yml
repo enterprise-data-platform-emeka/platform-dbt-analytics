@@ -1,0 +1,8 @@
+packages:
+  # dbt_utils provides helper macros like safe_cast, date_trunc, generate_surrogate_key, etc.
+  - package: dbt-labs/dbt_utils
+    version: [">=1.0.0", "<2.0.0"]
+
+  # dbt_expectations provides Great Expectations-style tests for row-level data quality checks.
+  - package: calogica/dbt_expectations
+    version: [">=0.10.0", "<1.0.0"]
