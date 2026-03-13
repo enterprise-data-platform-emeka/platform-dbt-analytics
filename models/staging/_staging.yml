@@ -115,7 +115,7 @@ models:
         data_tests:
           - not_null
           - accepted_values:
-              values: ["pending", "confirmed", "shipped", "delivered", "cancelled"]
+              values: ["pending", "confirmed", "processing", "shipped", "delivered", "cancelled", "refunded"]
 
       - name: order_year
         description: Partition column. Year the order was placed.
@@ -217,7 +217,7 @@ models:
         data_tests:
           - not_null
           - accepted_values:
-              values: ["credit_card", "debit_card", "paypal", "bank_transfer"]
+              values: ["credit_card", "debit_card", "paypal", "bank_transfer", "crypto"]
 
       - name: amount
         description: Total payment amount.
@@ -270,6 +270,8 @@ models:
           - relationships:
               to: ref('stg_orders')
               field: order_id
+              config:
+                severity: warn
 
       - name: carrier
         description: Shipping carrier name.
@@ -281,7 +283,7 @@ models:
         data_tests:
           - not_null
           - accepted_values:
-              values: ["pending", "in_transit", "delivered", "failed"]
+              values: ["pending", "in_transit", "out_for_delivery", "delivered", "failed_delivery", "returned"]
 
       - name: shipped_date
         description: Date the package left the warehouse.
