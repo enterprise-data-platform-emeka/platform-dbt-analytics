@@ -24,4 +24,4 @@ select
     p.brand
 
 from {{ ref('stg_order_items') }}  oi
-left join {{ ref('stg_products') }} p  using (product_id)
+left join {{ ref('stg_products') }} p  on oi.product_id = p.product_id

@@ -41,6 +41,6 @@ select
     s.delivery_days
 
 from {{ ref('stg_orders') }}       o
-left join {{ ref('stg_customers') }} c  using (customer_id)
-left join {{ ref('stg_payments') }}  p  using (order_id)
-left join {{ ref('stg_shipments') }} s  using (order_id)
+left join {{ ref('stg_customers') }} c  on o.customer_id  = c.customer_id
+left join {{ ref('stg_payments') }}  p  on o.order_id     = p.order_id
+left join {{ ref('stg_shipments') }} s  on o.order_id     = s.order_id

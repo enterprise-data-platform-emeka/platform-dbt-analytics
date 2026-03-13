@@ -65,8 +65,8 @@ services:
       DBT_ATHENA_DATABASE: ${DBT_ATHENA_DATABASE:-edp_dev_gold}
       DBT_ATHENA_SCHEMA: ${DBT_ATHENA_SCHEMA:-edp_dev_gold}
 
-      # The Athena results bucket is account-specific so it must be provided at runtime.
-      ATHENA_RESULTS_BUCKET: ${ATHENA_RESULTS_BUCKET}
+      # The Athena results bucket. Defaults to the dev bucket; override for staging/prod.
+      ATHENA_RESULTS_BUCKET: ${ATHENA_RESULTS_BUCKET:-edp-dev-158311564771-athena-results}
 
       # AWS profile and Athena workgroup for the target environment.
       AWS_PROFILE: ${AWS_PROFILE:-dev-admin}
