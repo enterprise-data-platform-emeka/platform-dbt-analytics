@@ -26,6 +26,7 @@ sources:
 
     tables:
       - name: customers
+        identifier: dim_customer
         description: >
           Customer master records sourced from the PostgreSQL OLTP system via
           DMS (Database Migration Service) CDC (Change Data Capture). One row per customer.
@@ -48,6 +49,7 @@ sources:
             description: Date the customer account was created in the source system.
 
       - name: products
+        identifier: dim_product
         description: >
           Product catalogue sourced from the OLTP system. One row per product SKU.
         meta:
@@ -67,6 +69,7 @@ sources:
             description: Current inventory quantity on hand.
 
       - name: orders
+        identifier: fact_orders
         description: >
           Order header records. One row per order. Partitioned by order_year and
           order_month for efficient Athena partition pruning.
@@ -89,6 +92,7 @@ sources:
             description: Partition column. Month the order was placed (1-12).
 
       - name: order_items
+        identifier: fact_order_items
         description: >
           Order line items. One row per product per order. Partitioned by
           order_year and order_month to align with the orders partition scheme.
@@ -113,6 +117,7 @@ sources:
             description: Partition column. Month the order was placed (1-12).
 
       - name: payments
+        identifier: fact_payments
         description: >
           Payment transactions. One row per payment attempt. An order may have
           multiple payment records if an initial attempt failed. Partitioned by
@@ -138,6 +143,7 @@ sources:
             description: Partition column. Month the payment was processed (1-12).
 
       - name: shipments
+        identifier: fact_shipments
         description: >
           Shipment records tracking physical fulfilment of orders. One row per
           shipment. Partitioned by shipped_year and shipped_month.
