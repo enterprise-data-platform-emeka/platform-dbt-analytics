@@ -1,0 +1,114 @@
+name: Deploy
+
+# Runs dbt models against AWS Athena for a target environment.
+#
+# What "deploy" means here:
+#   1. dbt deps  — install dbt packages
+#   2. dbt run   — compile and execute all models against Athena (Gold layer)
+#   3. dbt test  — run all data quality tests against the materialised tables
+#
+# The local DuckDB CI (ci.yml) validates SQL logic on every PR.
+# This workflow promotes a validated commit to a real AWS environment.
+#
+# Triggers:
+#   - push to main    → automatically deploys to dev
+#   - workflow_dispatch → manually deploys to staging or prod
+#
+# Promotion path: dev (auto) → staging (manual) → prod (manual + approval)
+#
+# AWS authentication uses OIDC (no long-lived access keys).
+# Required IAM role: edp-{env}-github-actions-role
+#
+# Required GitHub configuration:
+#   Repository variables:
+#     AWS_ACCOUNT_ID  — 12-digit AWS account ID
+#   Environments: dev, staging, prod (Settings → Environments)
+#     staging — add required reviewers
+#     prod    — add required reviewers + deployment protection rules
+
+on:
+  push:
+    branches: [main]
+
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        required: true
+        type: choice
+        options: [staging, prod]
+
+jobs:
+  deploy:
+    name: Deploy to ${{ inputs.environment || 'dev' }}
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment || 'dev' }}
+
+    permissions:
+      id-token: write
+      contents: read
+
+    env:
+      ENV: ${{ inputs.environment || 'dev' }}
+      DBT_PROFILES_DIR: profiles
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dbt and Athena adapter
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/edp-${{ env.ENV }}-github-actions-role
+          aws-region: eu-central-1
+
+      - name: Resolve AWS account ID
+        id: account
+        run: echo "id=$(aws sts get-caller-identity --query Account --output text)" >> "$GITHUB_OUTPUT"
+
+      - name: dbt deps
+        run: dbt deps --profile edp_analytics --target ${{ env.ENV }}
+
+      - name: dbt run
+        run: dbt run --profile edp_analytics --target ${{ env.ENV }}
+        env:
+          DBT_TARGET: ${{ env.ENV }}
+          DBT_SILVER_DATABASE: edp_${{ env.ENV }}_silver
+          DBT_SILVER_SCHEMA: edp_${{ env.ENV }}_silver
+          DBT_ATHENA_DATABASE: edp_${{ env.ENV }}_gold
+          DBT_ATHENA_SCHEMA: edp_${{ env.ENV }}_gold
+          ATHENA_RESULTS_BUCKET: edp-${{ env.ENV }}-${{ steps.account.outputs.id }}-athena-results
+          ATHENA_WORKGROUP: edp-${{ env.ENV }}-workgroup
+
+      - name: dbt test
+        run: dbt test --profile edp_analytics --target ${{ env.ENV }}
+        env:
+          DBT_TARGET: ${{ env.ENV }}
+          DBT_SILVER_DATABASE: edp_${{ env.ENV }}_silver
+          DBT_SILVER_SCHEMA: edp_${{ env.ENV }}_silver
+          DBT_ATHENA_DATABASE: edp_${{ env.ENV }}_gold
+          DBT_ATHENA_SCHEMA: edp_${{ env.ENV }}_gold
+          ATHENA_RESULTS_BUCKET: edp-${{ env.ENV }}-${{ steps.account.outputs.id }}-athena-results
+          ATHENA_WORKGROUP: edp-${{ env.ENV }}-workgroup
+
+      - name: Upload dbt artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dbt-artifacts-${{ env.ENV }}-${{ github.sha }}
+          path: |
+            target/manifest.json
+            target/run_results.json
+            target/catalog.json
+          retention-days: 30
