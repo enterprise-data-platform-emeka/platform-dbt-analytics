@@ -23,7 +23,7 @@ edp_analytics:
     dev:
       type: athena
       region_name: eu-central-1
-      database: "{{ env_var('DBT_ATHENA_DATABASE', 'edp_dev_gold') }}"
+      database: AwsDataCatalog
       schema: "{{ env_var('DBT_ATHENA_SCHEMA', 'edp_dev_gold') }}"
       s3_staging_dir: "s3://{{ env_var('ATHENA_RESULTS_BUCKET') }}/dbt/"
       aws_profile_name: "{{ env_var('AWS_PROFILE', 'dev-admin') }}"
@@ -33,7 +33,7 @@ edp_analytics:
     staging:
       type: athena
       region_name: eu-central-1
-      database: "{{ env_var('DBT_ATHENA_DATABASE', 'edp_staging_gold') }}"
+      database: AwsDataCatalog
       schema: "{{ env_var('DBT_ATHENA_SCHEMA', 'edp_staging_gold') }}"
       s3_staging_dir: "s3://{{ env_var('ATHENA_RESULTS_BUCKET') }}/dbt/"
       aws_profile_name: "{{ env_var('AWS_PROFILE', 'staging-admin') }}"
@@ -43,7 +43,7 @@ edp_analytics:
     prod:
       type: athena
       region_name: eu-central-1
-      database: "{{ env_var('DBT_ATHENA_DATABASE', 'edp_prod_gold') }}"
+      database: AwsDataCatalog
       schema: "{{ env_var('DBT_ATHENA_SCHEMA', 'edp_prod_gold') }}"
       s3_staging_dir: "s3://{{ env_var('ATHENA_RESULTS_BUCKET') }}/dbt/"
       aws_profile_name: "{{ env_var('AWS_PROFILE', 'prod-admin') }}"

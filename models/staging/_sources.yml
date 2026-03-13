@@ -21,7 +21,7 @@ sources:
       Silver layer data produced by Glue PySpark jobs. Each table has been
       cleaned, type-cast, deduplicated, and partitioned by year/month. This is
       the input layer for all dbt staging models.
-    database: "{{ env_var('DBT_SILVER_DATABASE', 'edp_dev_silver') }}"
+    database: AwsDataCatalog
     schema: "{{ env_var('DBT_SILVER_SCHEMA', 'edp_dev_silver') }}"
 
     tables:
