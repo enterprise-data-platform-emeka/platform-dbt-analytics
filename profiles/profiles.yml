@@ -26,9 +26,11 @@ edp_analytics:
       database: AwsDataCatalog
       schema: "{{ env_var('DBT_ATHENA_SCHEMA', 'edp_dev_gold') }}"
       s3_staging_dir: "s3://{{ env_var('ATHENA_RESULTS_BUCKET') }}/dbt/"
-      aws_profile_name: "{{ env_var('AWS_PROFILE', 'dev-admin') }}"
       threads: 4
       work_group: "{{ env_var('ATHENA_WORKGROUP', 'edp-dev-workgroup') }}"
+      # No aws_profile_name — boto3 uses the default credential chain.
+      # Locally: set AWS_PROFILE=dev-admin before running dbt.
+      # In CI: OIDC env vars (AWS_ACCESS_KEY_ID etc.) are picked up automatically.
 
     staging:
       type: athena
@@ -36,7 +38,6 @@ edp_analytics:
       database: AwsDataCatalog
       schema: "{{ env_var('DBT_ATHENA_SCHEMA', 'edp_staging_gold') }}"
       s3_staging_dir: "s3://{{ env_var('ATHENA_RESULTS_BUCKET') }}/dbt/"
-      aws_profile_name: "{{ env_var('AWS_PROFILE', 'staging-admin') }}"
       threads: 4
       work_group: "{{ env_var('ATHENA_WORKGROUP', 'edp-staging-workgroup') }}"
 
@@ -46,6 +47,5 @@ edp_analytics:
       database: AwsDataCatalog
       schema: "{{ env_var('DBT_ATHENA_SCHEMA', 'edp_prod_gold') }}"
       s3_staging_dir: "s3://{{ env_var('ATHENA_RESULTS_BUCKET') }}/dbt/"
-      aws_profile_name: "{{ env_var('AWS_PROFILE', 'prod-admin') }}"
       threads: 4
       work_group: "{{ env_var('ATHENA_WORKGROUP', 'edp-prod-workgroup') }}"
