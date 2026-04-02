@@ -114,7 +114,9 @@ Local runs write output to `/tmp/edp_analytics.duckdb`. The DuckDB target in `pr
 
 ## Running against AWS Athena
 
-When running against AWS the dbt profile switches to Athena. The Glue Catalog provides the Silver source tables, and Gold models write Parquet back to the Gold S3 bucket.
+When running against AWS the dbt profile switches to Athena.
+
+![Athena query editor showing monthly_revenue_trend Gold table with 10 rows returned from the edp_dev_gold database](images/Athena.png) The Glue Catalog provides the Silver source tables, and Gold models write Parquet back to the Gold S3 bucket.
 
 ```bash
 # Run all models against AWS dev
