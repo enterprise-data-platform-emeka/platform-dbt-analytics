@@ -193,4 +193,22 @@ The reason mart models are tables rather than views: BI tools running analyst qu
 
 ## CI/CD
 
-Every push runs all dbt models and tests against a DuckDB container in GitHub Actions. This catches SQL errors, schema mismatches, and test failures before any code touches AWS. On merge to main, models are automatically run against the dev Athena environment via OIDC (OpenID Connect) authentication.
+CI skips runs triggered by README or fixture data changes. Only source code changes (`models/`, `macros/`, `tests/`, `profiles/`, config files) trigger the pipeline.
+
+### On every pull request and push to main
+
+Three jobs run in parallel:
+
+| Job | What it checks |
+|---|---|
+| SQL lint | sqlfluff lints all `.sql` files in `models/` using the Jinja templater (no AWS connection needed) |
+| dbt local | dbt deps + run + test + docs against DuckDB using Parquet fixtures from `data/silver/`. Catches SQL errors, schema mismatches, and test failures before any code reaches Athena. |
+| Docker build | Verifies the Dockerfile builds cleanly (no push in CI) |
+
+### On merge to main
+
+The deploy workflow triggers automatically after CI passes. It runs `dbt deps`, `dbt run`, and `dbt test` against the dev Athena environment. Authentication uses OIDC (OpenID Connect), no long-lived AWS credentials are stored anywhere. dbt artifacts (`manifest.json`, `run_results.json`, `catalog.json`) are uploaded as GitHub Actions artifacts and retained for 30 days.
+
+### Promotion to staging and prod
+
+Trigger the Deploy workflow manually from GitHub Actions, choose the target environment. GitHub Environment protection rules require reviewer approval for staging and prod before the job runs.
