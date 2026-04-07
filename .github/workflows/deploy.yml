@@ -111,6 +111,76 @@ jobs:
           ATHENA_RESULTS_BUCKET: edp-${{ env.ENV }}-${{ steps.account.outputs.id }}-athena-results
           ATHENA_WORKGROUP: edp-${{ env.ENV }}-workgroup
 
+      - name: Build and publish MWAA plugins
+        # Only runs after dbt test passes — broken models must not reach MWAA workers.
+        # Builds plugins.zip from this checked-out repo, uploads it to the MWAA DAGs
+        # S3 bucket, and calls aws mwaa update-environment only when the content has
+        # actually changed. An ETag comparison prevents a needless 35-minute MWAA
+        # environment update when dbt project files are identical to the last deploy.
+        env:
+          MWAA_ENV_NAME: edp-${{ env.ENV }}-mwaa
+          MWAA_BUCKET: edp-${{ env.ENV }}-${{ steps.account.outputs.id }}-mwaa-dags
+        run: |
+          # Build plugins.zip with a top-level platform-dbt-analytics/ directory entry
+          # so MWAA extracts it to /usr/local/airflow/plugins/platform-dbt-analytics/.
+          cd "${GITHUB_WORKSPACE}/.."
+          zip -r "${GITHUB_WORKSPACE}/plugins.zip" platform-dbt-analytics \
+            --exclude "platform-dbt-analytics/.git/*" \
+            --exclude "platform-dbt-analytics/__pycache__/*" \
+            --exclude "platform-dbt-analytics/.venv/*" \
+            --exclude "platform-dbt-analytics/target/*" \
+            --exclude "platform-dbt-analytics/dbt_packages/*" \
+            --exclude "platform-dbt-analytics/scripts/*" \
+            --exclude "platform-dbt-analytics/data/*" \
+            --exclude "platform-dbt-analytics/logs/*"
+          cd "${GITHUB_WORKSPACE}"
+          echo "plugins.zip built: $(du -sh plugins.zip | cut -f1)"
+
+          # Get the ETag of the plugins version currently loaded on MWAA workers.
+          CURRENT_VERSION=$(aws mwaa get-environment \
+            --name "${MWAA_ENV_NAME}" \
+            --query "Environment.PluginsS3ObjectVersion" \
+            --output text 2>/dev/null || echo "NONE")
+
+          if [ "${CURRENT_VERSION}" != "NONE" ] && [ "${CURRENT_VERSION}" != "None" ]; then
+            CURRENT_ETAG=$(aws s3api head-object \
+              --bucket "${MWAA_BUCKET}" \
+              --key "plugins.zip" \
+              --version-id "${CURRENT_VERSION}" \
+              --query ETag \
+              --output text 2>/dev/null || echo "")
+          else
+            CURRENT_ETAG=""
+          fi
+
+          # Upload the new plugins.zip and capture the new S3 version ID.
+          NEW_VERSION=$(aws s3api put-object \
+            --bucket "${MWAA_BUCKET}" \
+            --key "plugins.zip" \
+            --body plugins.zip \
+            --query VersionId \
+            --output text)
+
+          NEW_ETAG=$(aws s3api head-object \
+            --bucket "${MWAA_BUCKET}" \
+            --key "plugins.zip" \
+            --version-id "${NEW_VERSION}" \
+            --query ETag \
+            --output text)
+
+          echo "Current plugins ETag : ${CURRENT_ETAG:-none}"
+          echo "New plugins ETag     : ${NEW_ETAG}"
+
+          if [ "${CURRENT_ETAG}" = "${NEW_ETAG}" ]; then
+            echo "Plugins content unchanged. Skipping MWAA environment update."
+          else
+            echo "Plugins changed. Triggering MWAA environment update (~35 min)."
+            aws mwaa update-environment \
+              --name "${MWAA_ENV_NAME}" \
+              --plugins-s3-object-version "${NEW_VERSION}"
+            echo "MWAA environment update triggered successfully."
+          fi
+
       - name: Upload dbt artifacts
         uses: actions/upload-artifact@v4
         if: always()
