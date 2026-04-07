@@ -211,6 +211,8 @@ Three jobs run in parallel:
 
 The deploy workflow triggers automatically after CI passes. It runs `dbt deps`, `dbt run`, and `dbt test` against the dev Athena environment. Authentication uses OIDC (OpenID Connect), no long-lived AWS credentials are stored anywhere. dbt artifacts (`manifest.json`, `run_results.json`, `catalog.json`) are uploaded as GitHub Actions artifacts and retained for 30 days.
 
+After `dbt test` passes, the deploy workflow builds `plugins.zip` (containing the full dbt project) and uploads it to the MWAA DAGs S3 bucket. If the content changed since the last deploy, it calls `aws mwaa update-environment` to reload the plugins on MWAA workers (~35 minutes). If the content is unchanged, the update is skipped. This means MWAA always has the current dbt project without requiring a manual deployment step.
+
 ### Promotion to staging and prod
 
 Trigger the Deploy workflow manually from GitHub Actions, choose the target environment. GitHub Environment protection rules require reviewer approval for staging and prod before the job runs.
