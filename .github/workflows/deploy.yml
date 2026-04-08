@@ -41,7 +41,7 @@ on:
         description: "Target environment"
         required: true
         type: choice
-        options: [staging, prod]
+        options: [dev, staging, prod]
 
 jobs:
   deploy:
