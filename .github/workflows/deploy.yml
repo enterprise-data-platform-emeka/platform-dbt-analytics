@@ -94,6 +94,7 @@ jobs:
           cd "${GITHUB_WORKSPACE}/.."
           zip -r "${GITHUB_WORKSPACE}/plugins.zip" platform-dbt-analytics \
             --exclude "platform-dbt-analytics/.git/*" \
+            --exclude "platform-dbt-analytics/.github/*" \
             --exclude "platform-dbt-analytics/__pycache__/*" \
             --exclude "platform-dbt-analytics/.venv/*" \
             --exclude "platform-dbt-analytics/target/*" \
