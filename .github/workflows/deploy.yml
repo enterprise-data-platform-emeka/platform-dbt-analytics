@@ -1,20 +1,27 @@
 name: Deploy
 
-# Runs dbt models against AWS Athena for a target environment.
+# Two-job deploy pipeline for the dbt analytics project.
 #
-# What "deploy" means here:
-#   1. dbt deps  — install dbt packages
-#   2. dbt run   — compile and execute all models against Athena (Gold layer)
-#   3. dbt test  — run all data quality tests against the materialised tables
+# Job 1 — upload-plugins (always runs):
+#   Builds plugins.zip from this repo and uploads it to the MWAA DAGs S3 bucket.
+#   MWAA workers need this to find the dbt project at runtime. DuckDB CI has
+#   already validated model SQL, so plugins can be delivered without a live
+#   Athena run. An ETag comparison skips the 35-minute MWAA environment update
+#   when plugin content has not changed.
 #
-# The local DuckDB CI (ci.yml) validates SQL logic on every PR.
-# This workflow promotes a validated commit to a real AWS environment.
+# Job 2 — run-dbt (runs after upload-plugins):
+#   Runs dbt against real Athena Silver data to materialise the Gold layer.
+#   On a fresh environment (Silver tables not yet populated by MWAA), this job
+#   fails. That is expected. The MWAA pipeline must run first to populate Silver,
+#   then re-trigger this workflow manually for run-dbt to succeed.
 #
-# Triggers:
-#   - push to main    → automatically deploys to dev
-#   - workflow_dispatch → manually deploys to staging or prod
+# First-deploy sequence (after make apply dev):
+#   1. Trigger this workflow → plugins.zip uploaded + MWAA update triggered (~35 min)
+#   2. Trigger platform-orchestration-mwaa-airflow deploy → DAG uploaded
+#   3. After both MWAA updates complete: trigger the edp_pipeline DAG in the Airflow UI
+#   4. After the pipeline completes: re-trigger this workflow → run-dbt succeeds
 #
-# Promotion path: dev (auto) → staging (manual) → prod (manual + approval)
+# Promotion path: dev (auto on CI pass) → staging (manual) → prod (manual + approval)
 #
 # AWS authentication uses OIDC (no long-lived access keys).
 # Required IAM role: edp-{env}-github-actions-role
@@ -34,7 +41,8 @@ on:
     types: [completed]
     branches: [main]
 
-  # Manual trigger for deploying to staging or prod.
+  # Manual trigger: deploy to staging/prod, or re-run run-dbt after MWAA
+  # has populated Silver on a fresh environment.
   workflow_dispatch:
     inputs:
       environment:
@@ -43,14 +51,16 @@ on:
         type: choice
         options: [dev, staging, prod]
 
+# ── Job 1: Build and publish MWAA plugins ─────────────────────────────────────
+
 jobs:
-  deploy:
-    name: Deploy to ${{ inputs.environment || 'dev' }}
+  upload-plugins:
+    name: Upload plugins to ${{ inputs.environment || 'dev' }}
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment || 'dev' }}
 
     # When triggered by workflow_run, only proceed if CI actually passed.
-    # workflow_dispatch bypasses this check, manual deploys are intentional.
+    # workflow_dispatch bypasses this check — manual deploys are intentional.
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
 
     permissions:
@@ -59,22 +69,10 @@ jobs:
 
     env:
       ENV: ${{ inputs.environment || 'dev' }}
-      DBT_PROFILES_DIR: profiles
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-          cache: pip
-
-      - name: Install dbt and Athena adapter
-        run: |
-          pip install --upgrade pip
-          pip install -r requirements.txt
 
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
@@ -86,37 +84,7 @@ jobs:
         id: account
         run: echo "id=$(aws sts get-caller-identity --query Account --output text)" >> "$GITHUB_OUTPUT"
 
-      - name: dbt deps
-        run: dbt deps --profile edp_analytics --target ${{ env.ENV }}
-
-      - name: dbt run
-        run: dbt run --profile edp_analytics --target ${{ env.ENV }}
-        env:
-          DBT_TARGET: ${{ env.ENV }}
-          DBT_SILVER_DATABASE: edp_${{ env.ENV }}_silver
-          DBT_SILVER_SCHEMA: edp_${{ env.ENV }}_silver
-          DBT_ATHENA_DATABASE: edp_${{ env.ENV }}_gold
-          DBT_ATHENA_SCHEMA: edp_${{ env.ENV }}_gold
-          ATHENA_RESULTS_BUCKET: edp-${{ env.ENV }}-${{ steps.account.outputs.id }}-athena-results
-          ATHENA_WORKGROUP: edp-${{ env.ENV }}-workgroup
-
-      - name: dbt test
-        run: dbt test --profile edp_analytics --target ${{ env.ENV }}
-        env:
-          DBT_TARGET: ${{ env.ENV }}
-          DBT_SILVER_DATABASE: edp_${{ env.ENV }}_silver
-          DBT_SILVER_SCHEMA: edp_${{ env.ENV }}_silver
-          DBT_ATHENA_DATABASE: edp_${{ env.ENV }}_gold
-          DBT_ATHENA_SCHEMA: edp_${{ env.ENV }}_gold
-          ATHENA_RESULTS_BUCKET: edp-${{ env.ENV }}-${{ steps.account.outputs.id }}-athena-results
-          ATHENA_WORKGROUP: edp-${{ env.ENV }}-workgroup
-
       - name: Build and publish MWAA plugins
-        # Only runs after dbt test passes — broken models must not reach MWAA workers.
-        # Builds plugins.zip from this checked-out repo, uploads it to the MWAA DAGs
-        # S3 bucket, and calls aws mwaa update-environment only when the content has
-        # actually changed. An ETag comparison prevents a needless 35-minute MWAA
-        # environment update when dbt project files are identical to the last deploy.
         env:
           MWAA_ENV_NAME: edp-${{ env.ENV }}-mwaa
           MWAA_BUCKET: edp-${{ env.ENV }}-${{ steps.account.outputs.id }}-mwaa-dags
@@ -180,6 +148,72 @@ jobs:
               --plugins-s3-object-version "${NEW_VERSION}"
             echo "MWAA environment update triggered successfully."
           fi
+
+# ── Job 2: Run dbt against Athena ─────────────────────────────────────────────
+
+  run-dbt:
+    name: Run dbt on ${{ inputs.environment || 'dev' }}
+    needs: upload-plugins
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment || 'dev' }}
+
+    permissions:
+      id-token: write
+      contents: read
+
+    env:
+      ENV: ${{ inputs.environment || 'dev' }}
+      DBT_PROFILES_DIR: profiles
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dbt and Athena adapter
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/edp-${{ env.ENV }}-github-actions-role
+          aws-region: eu-central-1
+
+      - name: Resolve AWS account ID
+        id: account
+        run: echo "id=$(aws sts get-caller-identity --query Account --output text)" >> "$GITHUB_OUTPUT"
+
+      - name: dbt deps
+        run: dbt deps --profile edp_analytics --target ${{ env.ENV }}
+
+      - name: dbt run
+        run: dbt run --profile edp_analytics --target ${{ env.ENV }}
+        env:
+          DBT_TARGET: ${{ env.ENV }}
+          DBT_SILVER_DATABASE: edp_${{ env.ENV }}_silver
+          DBT_SILVER_SCHEMA: edp_${{ env.ENV }}_silver
+          DBT_ATHENA_DATABASE: edp_${{ env.ENV }}_gold
+          DBT_ATHENA_SCHEMA: edp_${{ env.ENV }}_gold
+          ATHENA_RESULTS_BUCKET: edp-${{ env.ENV }}-${{ steps.account.outputs.id }}-athena-results
+          ATHENA_WORKGROUP: edp-${{ env.ENV }}-workgroup
+
+      - name: dbt test
+        run: dbt test --profile edp_analytics --target ${{ env.ENV }}
+        env:
+          DBT_TARGET: ${{ env.ENV }}
+          DBT_SILVER_DATABASE: edp_${{ env.ENV }}_silver
+          DBT_SILVER_SCHEMA: edp_${{ env.ENV }}_silver
+          DBT_ATHENA_DATABASE: edp_${{ env.ENV }}_gold
+          DBT_ATHENA_SCHEMA: edp_${{ env.ENV }}_gold
+          ATHENA_RESULTS_BUCKET: edp-${{ env.ENV }}-${{ steps.account.outputs.id }}-athena-results
+          ATHENA_WORKGROUP: edp-${{ env.ENV }}-workgroup
 
       - name: Upload dbt artifacts
         uses: actions/upload-artifact@v4
