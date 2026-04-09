@@ -209,9 +209,13 @@ Three jobs run in parallel:
 
 ### On merge to main
 
-The deploy workflow triggers automatically after CI passes. It runs `dbt deps`, `dbt run`, and `dbt test` against the dev Athena environment. Authentication uses OIDC (OpenID Connect), no long-lived AWS credentials are stored anywhere. dbt artifacts (`manifest.json`, `run_results.json`, `catalog.json`) are uploaded as GitHub Actions artifacts and retained for 30 days.
+The deploy workflow triggers automatically after CI passes. It runs two jobs in sequence.
 
-After `dbt test` passes, the deploy workflow builds `plugins.zip` (containing the full dbt project) and uploads it to the MWAA DAGs S3 bucket. If the content changed since the last deploy, it calls `aws mwaa update-environment` to reload the plugins on MWAA workers (~35 minutes). If the content is unchanged, the update is skipped. This means MWAA always has the current dbt project without requiring a manual deployment step.
+**Job 1: upload-dbt-to-s3** — syncs the dbt project to `s3://{mwaa-bucket}/dbt/platform-dbt-analytics/` using `aws s3 sync`. This takes seconds. No MWAA environment update is triggered. MWAA workers download the project from this S3 path at the start of every `gold_dbt_run` task, so dbt model changes take effect on the next DAG run with no wait.
+
+**Job 2: run-dbt** — runs `dbt deps`, `dbt run`, and `dbt test` against the dev Athena environment. This validates models against real Silver data as a second check after DuckDB CI. On a fresh environment (Silver tables not yet populated by MWAA), this job fails. That is expected: the MWAA pipeline must run first to populate Silver, then re-trigger this workflow manually. Authentication uses OIDC (OpenID Connect), no long-lived AWS credentials are stored anywhere. dbt artifacts (`manifest.json`, `run_results.json`, `catalog.json`) are uploaded as GitHub Actions artifacts and retained for 30 days.
+
+The dbt project is **not** in plugins.zip. plugins.zip is a permanent empty placeholder created by Terraform and never updated. MWAA environment updates are only triggered by changes to `requirements.txt` in the `platform-orchestration-mwaa-airflow` repo.
 
 ### Promotion to staging and prod
 
