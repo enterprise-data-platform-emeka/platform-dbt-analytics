@@ -2,23 +2,28 @@ name: Deploy
 
 # Two-job deploy pipeline for the dbt analytics project.
 #
-# Job 1 — upload-plugins (always runs):
-#   Builds plugins.zip from this repo and uploads it to the MWAA DAGs S3 bucket.
-#   MWAA workers need this to find the dbt project at runtime. DuckDB CI has
-#   already validated model SQL, so plugins can be delivered without a live
-#   Athena run. An ETag comparison skips the 35-minute MWAA environment update
-#   when plugin content has not changed.
+# Job 1 — upload-dbt-to-s3 (always runs):
+#   Syncs the dbt project to s3://{mwaa-bucket}/dbt/platform-dbt-analytics/.
+#   MWAA workers download from this path at task runtime. No plugins.zip is
+#   built. No MWAA environment update is triggered. dbt model changes take
+#   effect on the next DAG run. This step completes in seconds.
 #
-# Job 2 — run-dbt (runs after upload-plugins):
-#   Runs dbt against real Athena Silver data to materialise the Gold layer.
+# Job 2 — run-dbt (runs after upload-dbt-to-s3):
+#   Runs dbt against real Athena Silver data to materialise Gold tables.
 #   On a fresh environment (Silver tables not yet populated by MWAA), this job
 #   fails. That is expected. The MWAA pipeline must run first to populate Silver,
 #   then re-trigger this workflow manually for run-dbt to succeed.
 #
+# MWAA environment updates are NEVER triggered by this workflow. plugins.zip is
+# a permanent placeholder created by Terraform and never touched again. The only
+# thing that triggers a MWAA update is a requirements.txt change in the
+# platform-orchestration-mwaa-airflow repo.
+#
 # First-deploy sequence (after make apply dev):
-#   1. Trigger this workflow → plugins.zip uploaded + MWAA update triggered (~35 min)
+#   1. Trigger this workflow → dbt project synced to S3 (seconds)
 #   2. Trigger platform-orchestration-mwaa-airflow deploy → DAG uploaded
-#   3. After both MWAA updates complete: trigger the edp_pipeline DAG in the Airflow UI
+#      (MWAA update only if requirements.txt changed, ~35 min)
+#   3. After MWAA is Available: trigger the edp_pipeline DAG in the Airflow UI
 #   4. After the pipeline completes: re-trigger this workflow → run-dbt succeeds
 #
 # Promotion path: dev (auto on CI pass) → staging (manual) → prod (manual + approval)
@@ -51,11 +56,11 @@ on:
         type: choice
         options: [dev, staging, prod]
 
-# ── Job 1: Build and publish MWAA plugins ─────────────────────────────────────
+# ── Job 1: Upload dbt project to S3 ───────────────────────────────────────────
 
 jobs:
-  upload-plugins:
-    name: Upload plugins to ${{ inputs.environment || 'dev' }}
+  upload-dbt-to-s3:
+    name: Upload dbt project to S3 (${{ inputs.environment || 'dev' }})
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment || 'dev' }}
 
@@ -84,77 +89,29 @@ jobs:
         id: account
         run: echo "id=$(aws sts get-caller-identity --query Account --output text)" >> "$GITHUB_OUTPUT"
 
-      - name: Build and publish MWAA plugins
+      - name: Sync dbt project to S3
+        # MWAA workers run: aws s3 sync s3://{bucket}/dbt/platform-dbt-analytics/ /tmp/dbt_workspace/
+        # at the start of every dbt task. This means dbt changes take effect on
+        # the next DAG run with no MWAA environment update needed.
         env:
-          MWAA_ENV_NAME: edp-${{ env.ENV }}-mwaa
           MWAA_BUCKET: edp-${{ env.ENV }}-${{ steps.account.outputs.id }}-mwaa-dags
         run: |
-          # Build plugins.zip with a top-level platform-dbt-analytics/ directory entry
-          # so MWAA extracts it to /usr/local/airflow/plugins/platform-dbt-analytics/.
-          cd "${GITHUB_WORKSPACE}/.."
-          zip -r "${GITHUB_WORKSPACE}/plugins.zip" platform-dbt-analytics \
-            --exclude "platform-dbt-analytics/.git/*" \
-            --exclude "platform-dbt-analytics/.github/*" \
-            --exclude "platform-dbt-analytics/__pycache__/*" \
-            --exclude "platform-dbt-analytics/.venv/*" \
-            --exclude "platform-dbt-analytics/target/*" \
-            --exclude "platform-dbt-analytics/dbt_packages/*" \
-            --exclude "platform-dbt-analytics/scripts/*" \
-            --exclude "platform-dbt-analytics/data/*" \
-            --exclude "platform-dbt-analytics/logs/*"
-          cd "${GITHUB_WORKSPACE}"
-          echo "plugins.zip built: $(du -sh plugins.zip | cut -f1)"
-
-          # Get the ETag of the plugins version currently loaded on MWAA workers.
-          CURRENT_VERSION=$(aws mwaa get-environment \
-            --name "${MWAA_ENV_NAME}" \
-            --query "Environment.PluginsS3ObjectVersion" \
-            --output text 2>/dev/null || echo "NONE")
-
-          if [ "${CURRENT_VERSION}" != "NONE" ] && [ "${CURRENT_VERSION}" != "None" ]; then
-            CURRENT_ETAG=$(aws s3api head-object \
-              --bucket "${MWAA_BUCKET}" \
-              --key "plugins.zip" \
-              --version-id "${CURRENT_VERSION}" \
-              --query ETag \
-              --output text 2>/dev/null || echo "")
-          else
-            CURRENT_ETAG=""
-          fi
-
-          # Upload the new plugins.zip and capture the new S3 version ID.
-          NEW_VERSION=$(aws s3api put-object \
-            --bucket "${MWAA_BUCKET}" \
-            --key "plugins.zip" \
-            --body plugins.zip \
-            --query VersionId \
-            --output text)
-
-          NEW_ETAG=$(aws s3api head-object \
-            --bucket "${MWAA_BUCKET}" \
-            --key "plugins.zip" \
-            --version-id "${NEW_VERSION}" \
-            --query ETag \
-            --output text)
-
-          echo "Current plugins ETag : ${CURRENT_ETAG:-none}"
-          echo "New plugins ETag     : ${NEW_ETAG}"
-
-          if [ "${CURRENT_ETAG}" = "${NEW_ETAG}" ]; then
-            echo "Plugins content unchanged. Skipping MWAA environment update."
-          else
-            echo "Plugins changed. Triggering MWAA environment update (~35 min)."
-            aws mwaa update-environment \
-              --name "${MWAA_ENV_NAME}" \
-              --plugins-s3-object-version "${NEW_VERSION}"
-            echo "MWAA environment update triggered successfully."
-          fi
+          aws s3 sync . s3://${MWAA_BUCKET}/dbt/platform-dbt-analytics/ \
+            --delete \
+            --exclude ".git/*" \
+            --exclude ".github/*" \
+            --exclude "__pycache__/*" \
+            --exclude ".venv/*" \
+            --exclude "target/*" \
+            --exclude "dbt_packages/*" \
+            --exclude "logs/*"
+          echo "dbt project synced to s3://${MWAA_BUCKET}/dbt/platform-dbt-analytics/"
 
 # ── Job 2: Run dbt against Athena ─────────────────────────────────────────────
 
   run-dbt:
     name: Run dbt on ${{ inputs.environment || 'dev' }}
-    needs: upload-plugins
+    needs: upload-dbt-to-s3
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment || 'dev' }}
 
