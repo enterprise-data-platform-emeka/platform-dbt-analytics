@@ -225,4 +225,34 @@ Trigger the Deploy workflow manually from GitHub Actions, choose the target envi
 
 ---
 
+## How the tests work
+
+dbt has its own built-in testing system so there is no pytest here. Tests are defined in YAML files next to the models and run with `dbt test`.
+
+**Schema tests** enforce data quality rules. For example: every `customer_id` must be unique and never null, and `payment_method` must be one of `credit_card`, `debit_card`, `paypal`, `apple_pay`, or `crypto`. If an unexpected value appears in the data, the test fails and the pipeline stops.
+
+**CI uses DuckDB instead of Athena.** DuckDB is a lightweight database that runs directly on the GitHub Actions machine with no cloud connection. It reads the Silver Parquet fixtures from `data/silver/` and runs all the dbt models against them. CI finishes in seconds at zero cost. The fixtures are Parquet, not CSV, because Parquet preserves column types exactly, the same types the Gold Athena tables use in production.
+
+The full Athena validation happens in the deploy workflow, where `dbt run` and `dbt test` run against real Silver data in the dev environment. This is the final gate before the Gold tables are updated.
+
+```mermaid
+flowchart TD
+    A[Push to GitHub] --> B[Three jobs run in parallel]
+    B --> C[SQL lint\nsqlfluff checks every .sql model]
+    B --> D[dbt local\ndbt run + dbt test against DuckDB\nReads Silver Parquet fixtures\nNo AWS connection needed]
+    B --> E[Docker build\nVerifies image builds cleanly]
+    C --> F{All three pass?}
+    D --> F
+    E --> F
+    F -->|No| G[Pipeline stops here]
+    F -->|Yes| H[Deploy: upload dbt project to S3\nTakes seconds]
+    H --> I[Deploy: dbt run + dbt test\nagainst real Athena dev environment\nNeeds Silver data populated first]
+    I -->|Pass| J[Gold tables updated\nNext DAG run uses new models]
+    I -->|Fail| K[Expected on a fresh environment\nRun the MWAA pipeline first\nthen re-trigger this workflow]
+```
+
+The deploy step failing on a fresh environment is intentional. Silver tables must be populated by the MWAA pipeline before dbt can run against real data. Once the pipeline has run once, this step always passes.
+
+---
+
 **Next:** [platform-orchestration-mwaa-airflow](https://github.com/enterprise-data-platform-emeka/platform-orchestration-mwaa-airflow): with the individual Glue jobs and dbt models defined, the Airflow DAG on MWAA ties them together into an orchestrated end-to-end pipeline that runs on a schedule.
