@@ -2,6 +2,8 @@
 
 This repository is part of the [Enterprise Data Platform](https://github.com/enterprise-data-platform-emeka/platform-docs). For the full project overview, architecture diagram, and build order, start there.
 
+**Previous:** [platform-glue-jobs](https://github.com/enterprise-data-platform-emeka/platform-glue-jobs): those PySpark jobs reconciled Bronze CDC records into the clean Silver star schema that dbt reads here.
+
 ---
 
 ## What this repository does
@@ -220,3 +222,7 @@ The dbt project is **not** in plugins.zip. plugins.zip is a permanent empty plac
 ### Promotion to staging and prod
 
 Trigger the Deploy workflow manually from GitHub Actions, choose the target environment. GitHub Environment protection rules require reviewer approval for staging and prod before the job runs.
+
+---
+
+**Next:** [platform-orchestration-mwaa-airflow](https://github.com/enterprise-data-platform-emeka/platform-orchestration-mwaa-airflow): with the individual Glue jobs and dbt models defined, the Airflow DAG on MWAA ties them together into an orchestrated end-to-end pipeline that runs on a schedule.
