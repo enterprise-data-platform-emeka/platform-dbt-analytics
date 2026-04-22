@@ -237,18 +237,18 @@ The full Athena validation happens in the deploy workflow, where `dbt run` and `
 
 ```mermaid
 flowchart TD
-    A[Push to GitHub] --> B[Three jobs run in parallel]
+    A[Push to GitHub] -->|triggers CI| B[Three jobs run in parallel]
     B --> C[SQL lint\nsqlfluff checks every .sql model]
     B --> D[dbt local\ndbt run + dbt test against DuckDB\nReads Silver Parquet fixtures\nNo AWS connection needed]
     B --> E[Docker build\nVerifies image builds cleanly]
     C --> F{All three pass?}
     D --> F
     E --> F
-    F -->|No| G[Pipeline stops here]
-    F -->|Yes| H[Deploy: upload dbt project to S3\nTakes seconds]
-    H --> I[Deploy: dbt run + dbt test\nagainst real Athena dev environment\nNeeds Silver data populated first]
-    I -->|Pass| J[Gold tables updated\nNext DAG run uses new models]
-    I -->|Fail| K[Expected on a fresh environment\nRun the MWAA pipeline first\nthen re-trigger this workflow]
+    F -->|No — fix the error first| G[Pipeline stops here\nDeploy is blocked]
+    F -->|Yes — safe to deploy| H[Deploy: upload dbt project to S3\nS3 sync takes seconds\nMWAA workers download it at runtime]
+    H -->|project uploaded| I[Deploy: dbt run + dbt test\nagainst real Athena dev environment\nNeeds Silver data populated first]
+    I -->|Pass — Gold tables verified| J[Gold tables updated\nNext DAG run uses new models]
+    I -->|Fail — Silver not ready yet| K[Expected on a fresh environment\nRun the MWAA pipeline first\nthen re-trigger this workflow]
 ```
 
 The deploy step failing on a fresh environment is intentional. Silver tables must be populated by the MWAA pipeline before dbt can run against real data. Once the pipeline has run once, this step always passes.
