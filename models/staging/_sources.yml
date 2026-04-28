@@ -47,11 +47,17 @@ sources:
             description: Customer's phone number. May be null if not captured at signup.
           - name: signup_date
             description: Date the customer account was created in the source system.
+            tests:
+              - freshness_relative_to_reference:
+                  reference_date: '2026-03-02 23:59:59'
+                  warn_after_hours: 24
 
       - name: products
         identifier: dim_product
         description: >
           Product catalogue sourced from the OLTP system. One row per product SKU.
+          No freshness test: the Glue Silver job drops updated_at and this table
+          has no remaining timestamp column to check against.
         meta:
           external_location: "read_parquet('{{ env_var('DBT_SILVER_PATH', '/data/silver') }}/dim_product/**/*.parquet', hive_partitioning=true)"
         columns:
@@ -82,6 +88,10 @@ sources:
             description: Foreign key to the customers table.
           - name: order_date
             description: Date the order was placed.
+            tests:
+              - freshness_relative_to_reference:
+                  reference_date: '2026-03-02 23:59:59'
+                  warn_after_hours: 24
           - name: order_status
             description: >
               Current status of the order. Expected values: pending, processing,
@@ -96,6 +106,9 @@ sources:
         description: >
           Order line items. One row per product per order. Partitioned by
           order_year and order_month to align with the orders partition scheme.
+          No freshness test: order_date is joined in from fact_orders by the Glue
+          job and only stored as integer partition columns (order_year, order_month)
+          with no timestamp column surviving to Silver.
         meta:
           external_location: "read_parquet('{{ env_var('DBT_SILVER_PATH', '/data/silver') }}/fact_order_items/**/*.parquet', hive_partitioning=true)"
         columns:
@@ -137,6 +150,10 @@ sources:
             description: "Payment outcome. Expected values: pending, completed, failed, refunded."
           - name: payment_date
             description: Date the payment was processed.
+            tests:
+              - freshness_relative_to_reference:
+                  reference_date: '2026-03-02 23:59:59'
+                  warn_after_hours: 24
           - name: payment_year
             description: Partition column. Year the payment was processed.
           - name: payment_month
@@ -160,6 +177,10 @@ sources:
             description: "Current delivery state. Expected values: in_transit, delivered, failed, returned."
           - name: shipped_date
             description: Date the package left the warehouse.
+            tests:
+              - freshness_relative_to_reference:
+                  reference_date: '2026-03-02 23:59:59'
+                  warn_after_hours: 24
           - name: delivered_date
             description: Date the package was delivered. Null if not yet delivered.
           - name: delivery_days
