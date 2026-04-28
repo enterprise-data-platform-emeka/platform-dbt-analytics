@@ -226,8 +226,6 @@ The reason mart models are tables rather than views: BI tools running analyst qu
 
 ## How everything fits together
 
-This diagram shows the full picture from raw Silver data to the final Gold tables and monitoring. It's written for someone new to dbt who wants to understand what happens when `dbt run` and `dbt test` are called.
-
 ```mermaid
 flowchart TD
     SILVER["Silver layer — 6 Parquet tables in S3\nProduced by Glue PySpark jobs\ndim_customer · dim_product · fact_orders\nfact_order_items · fact_payments · fact_shipments"]
