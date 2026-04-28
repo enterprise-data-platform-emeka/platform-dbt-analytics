@@ -87,6 +87,47 @@ Every model has dbt tests defined in YAML. Staging models test that primary keys
 
 Running `dbt test` after `dbt run` validates every model. If any test fails, the pipeline stops and the failure is logged.
 
+### Partition-filtered tests
+
+By default, dbt tests run a full-table scan. On a fact table with years of history in production, a `not_null` test on `order_id` would scan every partition in Athena — expensive and slow. The fix is a `where` config that limits every test to a single partition.
+
+The `macros/current_march_partition.sql` macro generates the filter:
+
+```sql
+order_year = extract(year from current_date)
+and order_month = 3
+```
+
+Using `extract(year from current_date)` keeps the year dynamic so the macro doesn't need updating as calendar years advance. March is hardcoded because that's where the data lives (dataset ends 2026-03-02).
+
+The config is applied at the model level in the YAML, which cascades to all tests defined on that model:
+
+```yaml
+- name: stg_orders
+  config:
+    where: "{{ current_march_partition('order_year', 'order_month') }}"
+```
+
+Applied to the four partitioned fact tables and their corresponding marts:
+
+| Model | Partition columns | Macro call |
+|---|---|---|
+| `stg_orders` | `order_year`, `order_month` | `current_march_partition('order_year', 'order_month')` |
+| `stg_order_items` | `order_year`, `order_month` | `current_march_partition('order_year', 'order_month')` |
+| `stg_payments` | `payment_year`, `payment_month` | `current_march_partition('payment_year', 'payment_month')` |
+| `stg_shipments` | `shipped_year`, `shipped_month` | `current_march_partition('shipped_year', 'shipped_month')` |
+| `monthly_revenue_trend` | `order_year`, `order_month` | `current_march_partition('order_year', 'order_month')` |
+
+Dimension tables (`stg_customers`, `stg_products`) are not partitioned and scan the full table, which is acceptable because dimension tables are small by nature.
+
+### Unit tests — not currently implemented
+
+dbt 1.8 introduced native unit testing: you define mock input data and expected output rows in YAML, and dbt validates the SQL logic without hitting the database. dbtf (dbt Fusion) extends this further with a faster Rust-based test runner.
+
+Neither works with `dbt-athena-community` today. The Athena adapter has not yet implemented the unit test protocol, so any attempt to run `dbt test --select test_type:unit` fails at the adapter level. This is a gap in the adapter, not in the dbt project or the SQL logic.
+
+When Athena adapter support lands, unit tests belong in `tests/unit/` and cover the core business logic in intermediate and mart models — for example, verifying that the `customer_segments` macro correctly assigns `VIP` when `lifetime_value > 1000`.
+
 ### Data freshness tests
 
 Four Silver source tables have a custom freshness test defined in `models/staging/_sources.yml`. The test checks that the latest business date in each table is within 24 hours of `2026-03-02 23:59:59` — the last date present in the Bronze dataset.
@@ -230,33 +271,46 @@ The reason mart models are tables rather than views: BI tools running analyst qu
 flowchart TD
     SILVER["Silver layer — 6 Parquet tables in S3\nProduced by Glue PySpark jobs\ndim_customer · dim_product · fact_orders\nfact_order_items · fact_payments · fact_shipments"]
 
-    FRESH["Freshness tests\n4 of 6 tables have a date column checked:\nsignup_date · order_date · payment_date · shipped_date\nTest fails if max date is more than 24h behind 2026-03-02"]
+    FRESH["Step 1: dbt test --select source:silver\nFreshness gate — runs before dbt run\n4 tables checked: signup_date · order_date\npayment_date · shipped_date\nFails if max date is more than 24h behind 2026-03-02"]
 
-    SILVER -->|dbt test checks source freshness| FRESH
+    SILVER --> FRESH
 
-    STAGING["Staging — 6 views\nLight cleanup per table: lowercase strings,\nunambiguous column names, correct date types\nNo aggregation, no joins"]
+    GATE{Freshness\npassed?}
 
-    SILVER -->|dbt run reads source tables| STAGING
+    FRESH --> GATE
 
-    INTERMEDIATE["Intermediate — 2 views\nJoins across staging tables once\nso mart models don't repeat the same joins\nint_orders_enriched · int_product_sales"]
+    STOP["Pipeline stops here\nGold tables from the last successful run\nremain in place until Silver is fixed"]
 
-    STAGING --> INTERMEDIATE
+    GATE -->|No| STOP
 
-    MARTS["Mart layer — 7 tables written to Gold S3\nmonthly_revenue_trend · revenue_by_country\npayment_method_performance · product_category_performance\ntop_selling_products · customer_segments\ncarrier_delivery_performance"]
+    DBT_RUN["Step 2: dbt run\nBuilds all 15 models in dependency order\nStaging views → Intermediate views → Mart tables\nGold Parquet written to S3"]
 
-    INTERMEDIATE --> MARTS
+    GATE -->|Yes| DBT_RUN
 
-    QUALITY["Data quality tests\nEvery mart is tested: unique keys, no nulls,\nnon-negative revenue, valid categorical values\ndbt test fails the pipeline if any test returns rows"]
+    DBT_TEST["Step 3: dbt test\nQuality tests on every model\nPartition-filtered via current_march_partition macro\nAthena scans one partition only — cost stays flat at scale"]
 
-    MARTS -->|dbt test validates every mart| QUALITY
+    DBT_RUN --> DBT_TEST
+
+    GATE2{All tests\npassed?}
+
+    DBT_TEST --> GATE2
+
+    GATE2 -->|No| STOP
 
     GOLD["Gold S3 bucket\n7 pre-computed Parquet tables\nQueried by Athena, Redshift Serverless,\nand the Analytics Agent"]
 
-    MARTS -->|materialized as tables| GOLD
+    GATE2 -->|Yes| GOLD
 
-    ARTIFACTS["Artifacts uploaded to Bronze S3\nmanifest.json — model graph and column metadata\ncatalog.json — business descriptions from dbt docs\nAnalytics Agent loads these at startup"]
+    ARTIFACTS["Artifacts uploaded to Bronze S3\nmanifest.json + catalog.json\nAnalytics Agent loads these at startup\nfor business column descriptions"]
 
     GOLD --> ARTIFACTS
+
+    UNIT["Step 4: dbtf unit tests\nMock inputs and expected outputs in YAML\nTests SQL logic without hitting the database\nNot implemented: dbt-athena-community does not yet\nsupport the unit test protocol"]
+
+    DBT_TEST -.->|not yet implemented| UNIT
+
+    classDef notimpl fill:#f5f5f5,stroke:#999,stroke-dasharray:5 5,color:#999
+    class UNIT notimpl
 ```
 
 **Why views for staging and intermediate, tables for marts?**

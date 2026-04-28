@@ -27,6 +27,8 @@ models:
         description: total_revenue divided by total_orders. Null-safe via nullif.
 
   - name: monthly_revenue_trend
+    config:
+      where: "{{ current_march_partition('order_year', 'order_month') }}"
     description: >
       Answers: "How is revenue trending month over month?"
       One row per year-month combination. Covers all orders regardless of
