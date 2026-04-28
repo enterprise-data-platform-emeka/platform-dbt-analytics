@@ -230,81 +230,35 @@ This diagram shows the full picture from raw Silver data to the final Gold table
 
 ```mermaid
 flowchart TD
-    subgraph Silver ["Silver layer — input (produced by Glue PySpark jobs)"]
-        direction LR
-        SC[(dim_customer\nParquet in S3)]
-        SP[(dim_product\nParquet in S3)]
-        SO[(fact_orders\nParquet in S3)]
-        SOI[(fact_order_items\nParquet in S3)]
-        SPAY[(fact_payments\nParquet in S3)]
-        SSHIP[(fact_shipments\nParquet in S3)]
-    end
+    SILVER["Silver layer — 6 Parquet tables in S3\nProduced by Glue PySpark jobs\ndim_customer · dim_product · fact_orders\nfact_order_items · fact_payments · fact_shipments"]
 
-    subgraph FreshnessTests ["Freshness tests — run during dbt test"]
-        FT["test_freshness_relative_to_reference\nChecks max business date\nis within 24 hours of 2026-03-02\nFails if Silver data is incomplete"]
-    end
+    FRESH["Freshness tests\n4 of 6 tables have a date column checked:\nsignup_date · order_date · payment_date · shipped_date\nTest fails if max date is more than 24h behind 2026-03-02"]
 
-    SC -->|signup_date checked| FT
-    SO -->|order_date checked| FT
-    SPAY -->|payment_date checked| FT
-    SSHIP -->|shipped_date checked| FT
+    SILVER -->|dbt test checks source freshness| FRESH
 
-    subgraph Staging ["Staging layer — dbt views\nLight cleanup only: lowercase strings,\nrename ambiguous columns, cast dates"]
-        direction LR
-        S1[stg_customers]
-        S2[stg_products]
-        S3[stg_orders]
-        S4[stg_order_items]
-        S5[stg_payments]
-        S6[stg_shipments]
-    end
+    STAGING["Staging — 6 views\nLight cleanup per table: lowercase strings,\nunambiguous column names, correct date types\nNo aggregation, no joins"]
 
-    SC --> S1
-    SP --> S2
-    SO --> S3
-    SOI --> S4
-    SPAY --> S5
-    SSHIP --> S6
+    SILVER -->|dbt run reads source tables| STAGING
 
-    subgraph Intermediate ["Intermediate layer — dbt views\nJoins across staging models so\nmart models don't repeat the same joins"]
-        I1[int_orders_enriched\norders joined with customer,\npayment, and shipment context]
-        I2[int_product_sales\norder items joined with\nproduct catalogue]
-    end
+    INTERMEDIATE["Intermediate — 2 views\nJoins across staging tables once\nso mart models don't repeat the same joins\nint_orders_enriched · int_product_sales"]
 
-    S1 & S3 & S5 & S6 --> I1
-    S2 & S4 --> I2
+    STAGING --> INTERMEDIATE
 
-    subgraph Marts ["Mart layer — dbt tables\nPre-computed aggregations\nwritten to Gold S3 as Parquet"]
-        direction LR
-        M1[monthly_revenue_trend]
-        M2[revenue_by_country]
-        M3[payment_method_performance]
-        M4[product_category_performance]
-        M5[top_selling_products]
-        M6[customer_segments]
-        M7[carrier_delivery_performance]
-    end
+    MARTS["Mart layer — 7 tables written to Gold S3\nmonthly_revenue_trend · revenue_by_country\npayment_method_performance · product_category_performance\ntop_selling_products · customer_segments\ncarrier_delivery_performance"]
 
-    I1 --> M1 & M2 & M3 & M6 & M7
-    I2 --> M4 & M5
+    INTERMEDIATE --> MARTS
 
-    subgraph Tests ["Data quality tests — run during dbt test\nEvery mart has tests: no nulls on\nkey columns, non-negative revenue,\nvalid categorical values"]
-        T[dbt test\nFails the pipeline if any\ntest returns rows]
-    end
+    QUALITY["Data quality tests\nEvery mart is tested: unique keys, no nulls,\nnon-negative revenue, valid categorical values\ndbt test fails the pipeline if any test returns rows"]
 
-    M1 & M2 & M3 & M4 & M5 & M6 & M7 --> T
+    MARTS -->|dbt test validates every mart| QUALITY
 
-    subgraph Gold ["Gold layer — output\nParquet in S3 Gold bucket\nQueried by Athena, Redshift,\nand the Analytics Agent"]
-        G[(Gold S3\n7 mart tables)]
-    end
+    GOLD["Gold S3 bucket\n7 pre-computed Parquet tables\nQueried by Athena, Redshift Serverless,\nand the Analytics Agent"]
 
-    M1 & M2 & M3 & M4 & M5 & M6 & M7 -->|written as Parquet| G
+    MARTS -->|materialized as tables| GOLD
 
-    subgraph Artifacts ["Artifacts uploaded after each run"]
-        A[(manifest.json\ncatalog.json\nuploaded to Bronze S3\nAnalytics Agent reads these\nfor business column descriptions)]
-    end
+    ARTIFACTS["Artifacts uploaded to Bronze S3\nmanifest.json — model graph and column metadata\ncatalog.json — business descriptions from dbt docs\nAnalytics Agent loads these at startup"]
 
-    G --> Artifacts
+    GOLD --> ARTIFACTS
 ```
 
 **Why views for staging and intermediate, tables for marts?**
