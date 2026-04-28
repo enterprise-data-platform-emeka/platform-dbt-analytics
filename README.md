@@ -87,6 +87,31 @@ Every model has dbt tests defined in YAML. Staging models test that primary keys
 
 Running `dbt test` after `dbt run` validates every model. If any test fails, the pipeline stops and the failure is logged.
 
+### Data freshness tests
+
+Four Silver source tables have a custom freshness test defined in `models/staging/_sources.yml`. The test checks that the latest business date in each table is within 24 hours of `2026-03-02 23:59:59` — the last date present in the Bronze dataset.
+
+| Table | Column checked | Why this column |
+|---|---|---|
+| `customers` | `signup_date` | Latest customer signed up around March 2nd |
+| `orders` | `order_date` | Latest order placed around March 2nd |
+| `payments` | `payment_date` | Latest payment processed around March 2nd |
+| `shipments` | `shipped_date` | Latest shipment dispatched around March 2nd |
+
+`dim_product` and `fact_order_items` are excluded because the Glue Silver jobs drop `updated_at` and neither table retains a timestamp column after the transformation.
+
+The test uses a custom macro at `macros/test_freshness_relative_to_reference.sql` rather than dbt's built-in `source freshness` command. The built-in command compares against wall-clock time (`now()`), which would always fail for a historical dataset ending in March 2026. The custom macro compares against the fixed reference date instead, so it stays valid permanently.
+
+```bash
+# Run freshness tests only
+dbt test --select source:silver
+
+# Run all tests (freshness included)
+dbt test
+```
+
+The freshness tests run automatically in CI and in the deploy workflow's `dbt test` step. A failure means the Silver data did not reach the expected cutoff — either the Glue pipeline was incomplete or the Bronze data was missing records.
+
 ---
 
 ## Local development with DuckDB
@@ -176,6 +201,10 @@ platform-dbt-analytics/
 │       └── operations/
 │           ├── _operations.yml
 │           └── carrier_delivery_performance.sql
+├── macros/
+│   ├── generate_schema_name.sql  ← overrides dbt schema naming for Athena
+│   ├── safe_divide.sql           ← null-safe division helper used by marts
+│   └── test_freshness_relative_to_reference.sql  ← custom freshness test
 ├── profiles/
 │   └── profiles.yml              ← DuckDB (local) and Athena (AWS) targets
 ├── dbt_project.yml
@@ -192,6 +221,97 @@ platform-dbt-analytics/
 Staging and intermediate models are views. They cost nothing to store and always reflect the latest Silver data without needing to be rebuilt. Mart models are tables. They are rebuilt on every `dbt run`, which replaces the previous version atomically.
 
 The reason mart models are tables rather than views: BI tools running analyst queries would re-execute the aggregation SQL on every dashboard refresh if marts were views. Pre-computing them as tables means the dashboard query hits a simple Parquet read rather than a full aggregation.
+
+---
+
+## How everything fits together
+
+This diagram shows the full picture from raw Silver data to the final Gold tables and monitoring. It's written for someone new to dbt who wants to understand what happens when `dbt run` and `dbt test` are called.
+
+```mermaid
+flowchart TD
+    subgraph Silver ["Silver layer — input (produced by Glue PySpark jobs)"]
+        direction LR
+        SC[(dim_customer\nParquet in S3)]
+        SP[(dim_product\nParquet in S3)]
+        SO[(fact_orders\nParquet in S3)]
+        SOI[(fact_order_items\nParquet in S3)]
+        SPAY[(fact_payments\nParquet in S3)]
+        SSHIP[(fact_shipments\nParquet in S3)]
+    end
+
+    subgraph FreshnessTests ["Freshness tests — run during dbt test"]
+        FT["test_freshness_relative_to_reference\nChecks max business date\nis within 24 hours of 2026-03-02\nFails if Silver data is incomplete"]
+    end
+
+    SC -->|signup_date checked| FT
+    SO -->|order_date checked| FT
+    SPAY -->|payment_date checked| FT
+    SSHIP -->|shipped_date checked| FT
+
+    subgraph Staging ["Staging layer — dbt views\nLight cleanup only: lowercase strings,\nrename ambiguous columns, cast dates"]
+        direction LR
+        S1[stg_customers]
+        S2[stg_products]
+        S3[stg_orders]
+        S4[stg_order_items]
+        S5[stg_payments]
+        S6[stg_shipments]
+    end
+
+    SC --> S1
+    SP --> S2
+    SO --> S3
+    SOI --> S4
+    SPAY --> S5
+    SSHIP --> S6
+
+    subgraph Intermediate ["Intermediate layer — dbt views\nJoins across staging models so\nmart models don't repeat the same joins"]
+        I1[int_orders_enriched\norders joined with customer,\npayment, and shipment context]
+        I2[int_product_sales\norder items joined with\nproduct catalogue]
+    end
+
+    S1 & S3 & S5 & S6 --> I1
+    S2 & S4 --> I2
+
+    subgraph Marts ["Mart layer — dbt tables\nPre-computed aggregations\nwritten to Gold S3 as Parquet"]
+        direction LR
+        M1[monthly_revenue_trend]
+        M2[revenue_by_country]
+        M3[payment_method_performance]
+        M4[product_category_performance]
+        M5[top_selling_products]
+        M6[customer_segments]
+        M7[carrier_delivery_performance]
+    end
+
+    I1 --> M1 & M2 & M3 & M6 & M7
+    I2 --> M4 & M5
+
+    subgraph Tests ["Data quality tests — run during dbt test\nEvery mart has tests: no nulls on\nkey columns, non-negative revenue,\nvalid categorical values"]
+        T[dbt test\nFails the pipeline if any\ntest returns rows]
+    end
+
+    M1 & M2 & M3 & M4 & M5 & M6 & M7 --> T
+
+    subgraph Gold ["Gold layer — output\nParquet in S3 Gold bucket\nQueried by Athena, Redshift,\nand the Analytics Agent"]
+        G[(Gold S3\n7 mart tables)]
+    end
+
+    M1 & M2 & M3 & M4 & M5 & M6 & M7 -->|written as Parquet| G
+
+    subgraph Artifacts ["Artifacts uploaded after each run"]
+        A[(manifest.json\ncatalog.json\nuploaded to Bronze S3\nAnalytics Agent reads these\nfor business column descriptions)]
+    end
+
+    G --> Artifacts
+```
+
+**Why views for staging and intermediate, tables for marts?**
+Views are free to store and always reflect the latest Silver data automatically. Marts are pre-computed as tables because BI tools and the Analytics Agent would otherwise re-run the full aggregation SQL on every query. The mart SQL runs once per pipeline execution and the result sits in S3 ready to scan.
+
+**What happens when a test fails?**
+`dbt test` returns a non-zero exit code. In the MWAA DAG, the `gold_dbt_test` task fails, which means `upload_dbt_artifacts` and `pipeline_complete` never run. The Analytics Agent keeps using the previous Gold tables from the last successful run.
 
 ---
 
