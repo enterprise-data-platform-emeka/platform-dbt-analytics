@@ -223,6 +223,18 @@ The dbt project is **not** in plugins.zip. plugins.zip is a permanent empty plac
 
 Trigger the Deploy workflow manually from GitHub Actions, choose the target environment. GitHub Environment protection rules require reviewer approval for staging and prod before the job runs.
 
+### Not implemented: state:modified + defer
+
+A common CI optimisation for larger dbt projects is `--select state:modified+` combined with `--defer`. The idea: instead of running the full project on every PR, compare the current `manifest.json` against the last successful run's manifest and build only models that changed, plus everything downstream of them. `--defer` lets unchanged upstream models be satisfied from the production results rather than being rebuilt.
+
+I decided not to implement this for two reasons:
+
+**The DuckDB CI target makes it moot.** `--defer` tells dbt to query unchanged upstream models from a production environment. On the DuckDB local target there is no production environment: CI reads from `data/silver/` fixture files. Deferring to "production" in that context has no meaning, and the DuckDB runs are already fast (seconds at zero cost), so `state:modified+` would save little.
+
+**The cold-start problem requires a fallback.** `state:modified` fails if there is no previous manifest to compare against. This happens on the first-ever run, on a new branch with no CI history, and after the artifact retention period expires (7 days for CI artifacts, 30 days for deploy artifacts). A robust implementation needs a step that downloads the previous manifest and falls back to a full run if it does not exist. That is more complexity than the saving justifies at this project's scale.
+
+When to add this: if the number of Gold mart models grows to the point where the Athena deploy run (Job 2) becomes slow or expensive, `state:modified+` on the `dbt run` in the deploy workflow is the right optimisation. The DuckDB CI job does not need it. At that point, download the `manifest.json` from the last successful deploy run and pass it as `--state ./prod-manifest`. Keep a full-run fallback for the cold-start case.
+
 ---
 
 ## How the tests work
