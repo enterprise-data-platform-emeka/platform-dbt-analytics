@@ -269,45 +269,57 @@ The reason mart models are tables rather than views: BI tools running analyst qu
 
 ```mermaid
 flowchart TD
+    UNIT["Step 1 — CI: dbtf unit tests\nMock inputs and expected outputs in YAML\nTests SQL logic without touching the database\nRuns on every pull request — no AWS credentials needed\nNot implemented: dbt-athena-community does not yet\nsupport the unit test protocol"]
+
+    CI_GATE{Unit tests\npassed?}
+
+    UNIT --> CI_GATE
+
+    CI_BLOCK["CI fails — deploy is blocked\nNo code reaches S3 or Athena"]
+
+    CI_GATE -->|No| CI_BLOCK
+
+    DEPLOY["Deploy: sync dbt project to S3\nMWAA workers download it at runtime\nNo MWAA environment update needed"]
+
+    CI_GATE -->|Yes| DEPLOY
+
     SILVER["Silver layer — 6 Parquet tables in S3\nProduced by Glue PySpark jobs\ndim_customer · dim_product · fact_orders\nfact_order_items · fact_payments · fact_shipments"]
 
-    FRESH["Step 1: dbt test --select source:silver\nFreshness gate — runs before dbt run\n4 tables checked: signup_date · order_date\npayment_date · shipped_date\nFails if max date is more than 24h behind 2026-03-02"]
+    DEPLOY --> SILVER
+
+    FRESH["Step 2: dbt test --select source:silver\nFreshness gate — runs before dbt run\n4 tables checked: signup_date · order_date\npayment_date · shipped_date\nFails if max date is more than 24h behind 2026-03-02"]
 
     SILVER --> FRESH
 
-    GATE{Freshness\npassed?}
+    FRESH_GATE{Freshness\npassed?}
 
-    FRESH --> GATE
+    FRESH --> FRESH_GATE
 
     STOP["Pipeline stops here\nGold tables from the last successful run\nremain in place until Silver is fixed"]
 
-    GATE -->|No| STOP
+    FRESH_GATE -->|No| STOP
 
-    DBT_RUN["Step 2: dbt run\nBuilds all 15 models in dependency order\nStaging views → Intermediate views → Mart tables\nGold Parquet written to S3"]
+    DBT_RUN["Step 3: dbt run\nBuilds all 15 models in dependency order\nStaging views → Intermediate views → Mart tables\nGold Parquet written to S3"]
 
-    GATE -->|Yes| DBT_RUN
+    FRESH_GATE -->|Yes| DBT_RUN
 
-    DBT_TEST["Step 3: dbt test\nQuality tests on every model\nPartition-filtered via current_march_partition macro\nAthena scans one partition only — cost stays flat at scale"]
+    DBT_TEST["Step 4: dbt test\nQuality tests on every model\nPartition-filtered via current_march_partition macro\nAthena scans one partition only — cost stays flat at scale"]
 
     DBT_RUN --> DBT_TEST
 
-    GATE2{All tests\npassed?}
+    TEST_GATE{All tests\npassed?}
 
-    DBT_TEST --> GATE2
+    DBT_TEST --> TEST_GATE
 
-    GATE2 -->|No| STOP
+    TEST_GATE -->|No| STOP
 
     GOLD["Gold S3 bucket\n7 pre-computed Parquet tables\nQueried by Athena, Redshift Serverless,\nand the Analytics Agent"]
 
-    GATE2 -->|Yes| GOLD
+    TEST_GATE -->|Yes| GOLD
 
     ARTIFACTS["Artifacts uploaded to Bronze S3\nmanifest.json + catalog.json\nAnalytics Agent loads these at startup\nfor business column descriptions"]
 
     GOLD --> ARTIFACTS
-
-    UNIT["Step 4: dbtf unit tests\nMock inputs and expected outputs in YAML\nTests SQL logic without hitting the database\nNot implemented: dbt-athena-community does not yet\nsupport the unit test protocol"]
-
-    DBT_TEST -.->|not yet implemented| UNIT
 
     classDef notimpl fill:#f5f5f5,stroke:#999,stroke-dasharray:5 5,color:#999
     class UNIT notimpl
