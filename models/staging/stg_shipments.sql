@@ -5,8 +5,8 @@
 --   - Select the columns we need (no SELECT *)
 --   - Pass through partition columns for Athena partition pruning.
 --
--- `delivery_days` is pre-computed by the Glue Silver job (delivered_date - shipped_date).
--- It is null for shipments that have not yet been delivered.
+-- `delivery_days` is pre-computed by the Glue Silver job
+-- (delivered_date - shipped_date). Null for undelivered shipments.
 
 select
     shipment_id,

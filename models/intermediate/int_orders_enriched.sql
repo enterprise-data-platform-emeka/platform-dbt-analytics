@@ -28,7 +28,7 @@ select
     -- Payment context
     p.payment_id,
     p.payment_method,
-    p.amount         as payment_amount,
+    p.amount as payment_amount,
     p.payment_status,
     p.payment_date,
 
@@ -40,7 +40,7 @@ select
     s.delivered_date,
     s.delivery_days
 
-from {{ ref('stg_orders') }}       o
-left join {{ ref('stg_customers') }} c  on o.customer_id  = c.customer_id
-left join {{ ref('stg_payments') }}  p  on o.order_id     = p.order_id
-left join {{ ref('stg_shipments') }} s  on o.order_id     = s.order_id
+from {{ ref('stg_orders') }} as o
+left join {{ ref('stg_customers') }} as c on o.customer_id = c.customer_id
+left join {{ ref('stg_payments') }} as p on o.order_id = p.order_id
+left join {{ ref('stg_shipments') }} as s on o.order_id = s.order_id

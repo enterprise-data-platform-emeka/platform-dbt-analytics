@@ -11,9 +11,9 @@
 select
     payment_id,
     order_id,
-    method          as payment_method,
+    method as payment_method,
     amount,
-    status          as payment_status,
+    status as payment_status,
     payment_date,
     payment_year,
     payment_month

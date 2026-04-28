@@ -76,7 +76,7 @@ models:
           - not_null
       - name: successful
         description: Count of transactions with payment_status = 'completed'.
-      - name: failed
+      - name: failed_count
         description: Count of transactions with payment_status = 'failed'.
       - name: refunded
         description: Count of transactions with payment_status = 'refunded'.

@@ -1,12 +1,13 @@
 -- int_product_sales
 --
--- Joins order line items with product catalogue details so that every line item
--- row carries the full product context needed by the product performance mart.
--- Materialized as ephemeral — dbt inlines this as a CTE, no physical table created.
+-- Joins order line items with product catalogue details so that every line
+-- item row carries the full product context needed by the product
+-- performance mart. Materialized as ephemeral — dbt inlines this as a
+-- CTE, no physical table created.
 --
 -- JOIN strategy:
---   - LEFT JOIN on products: guards against orphaned line items if a product was
---     deleted from the catalogue after purchase. The line item is still counted.
+--   - LEFT JOIN on products: guards against orphaned line items if a
+--     product was deleted from the catalogue after purchase.
 
 select
     oi.order_item_id,
@@ -23,5 +24,5 @@ select
     p.category,
     p.brand
 
-from {{ ref('stg_order_items') }}  oi
-left join {{ ref('stg_products') }} p  on oi.product_id = p.product_id
+from {{ ref('stg_order_items') }} as oi
+left join {{ ref('stg_products') }} as p on oi.product_id = p.product_id

@@ -14,7 +14,7 @@ select
     first_name,
     last_name,
     email,
-    lower(country)              as country,
     phone,
-    cast(signup_date as date)   as signup_date
+    lower(country) as country,
+    cast(signup_date as date) as signup_date
 from {{ source('silver', 'customers') }}

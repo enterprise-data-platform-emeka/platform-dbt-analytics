@@ -11,7 +11,7 @@
 
 select
     product_id,
-    name        as product_name,
+    name as product_name,
     category,
     brand,
     unit_price,
