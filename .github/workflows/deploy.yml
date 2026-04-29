@@ -3,10 +3,11 @@ name: Deploy
 # Two-job deploy pipeline for the dbt analytics project.
 #
 # Job 1 — upload-dbt-to-s3 (always runs):
-#   Syncs the dbt project to s3://{mwaa-bucket}/dbt/platform-dbt-analytics/.
-#   MWAA workers download from this path at task runtime. No plugins.zip is
-#   built. No MWAA environment update is triggered. dbt model changes take
-#   effect on the next DAG run. This step completes in seconds.
+#   Syncs the dbt project to s3://{bronze-bucket}/dbt/platform-dbt-analytics/.
+#   The run_dbt Glue job (Step Functions path) and the MWAA DAG (orchestration
+#   path) both download from this prefix at runtime. The Bronze bucket always
+#   exists regardless of which orchestrator is active. No MWAA update triggered.
+#   dbt model changes take effect on the next pipeline run. Completes in seconds.
 #
 # Job 2 — run-dbt (runs after upload-dbt-to-s3):
 #   Runs dbt against real Athena Silver data to materialise Gold tables.
@@ -90,13 +91,14 @@ jobs:
         run: echo "id=$(aws sts get-caller-identity --query Account --output text)" >> "$GITHUB_OUTPUT"
 
       - name: Sync dbt project to S3
-        # MWAA workers run: aws s3 sync s3://{bucket}/dbt/platform-dbt-analytics/ /tmp/dbt_workspace/
-        # at the start of every dbt task. This means dbt changes take effect on
-        # the next DAG run with no MWAA environment update needed.
+        # The run_dbt Glue job (Step Functions path) downloads the project from
+        # s3://{bronze-bucket}/dbt/platform-dbt-analytics/ at startup.
+        # The MWAA DAG (orchestration path) also reads from here via the same prefix.
+        # The Bronze bucket always exists regardless of which orchestrator is active.
         env:
-          MWAA_BUCKET: edp-${{ env.ENV }}-${{ steps.account.outputs.id }}-mwaa-dags
+          BRONZE_BUCKET: edp-${{ env.ENV }}-${{ steps.account.outputs.id }}-bronze
         run: |
-          aws s3 sync . s3://${MWAA_BUCKET}/dbt/platform-dbt-analytics/ \
+          aws s3 sync . s3://${BRONZE_BUCKET}/dbt/platform-dbt-analytics/ \
             --delete \
             --exclude ".git/*" \
             --exclude ".github/*" \
@@ -105,7 +107,7 @@ jobs:
             --exclude "target/*" \
             --exclude "dbt_packages/*" \
             --exclude "logs/*"
-          echo "dbt project synced to s3://${MWAA_BUCKET}/dbt/platform-dbt-analytics/"
+          echo "dbt project synced to s3://${BRONZE_BUCKET}/dbt/platform-dbt-analytics/"
 
 # ── Job 2: Run dbt against Athena ─────────────────────────────────────────────
 
