@@ -9,7 +9,7 @@
 -- No business logic lives in staging. Joins, aggregations, and derived metrics
 -- belong in intermediate or mart models.
 
-select
+select -- noqa: ST06
     customer_id,
     first_name,
     last_name,

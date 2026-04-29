@@ -13,7 +13,7 @@ with customer_metrics as (
     from {{ ref('stg_customers') }} as c
     left join {{ ref('stg_orders') }} as o on c.customer_id = o.customer_id
     left join {{ ref('stg_payments') }} as p on o.order_id = p.order_id
-    group by customer_id, first_name, last_name, email, country, signup_date
+    group by c.customer_id, c.first_name, c.last_name, c.email, c.country, c.signup_date
 )
 
 select

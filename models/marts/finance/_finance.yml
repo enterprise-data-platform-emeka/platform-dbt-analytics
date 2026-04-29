@@ -74,7 +74,7 @@ models:
         description: Total number of payment attempts for this method.
         tests:
           - not_null
-      - name: successful
+      - name: completed_count
         description: Count of transactions with payment_status = 'completed'.
       - name: failed_count
         description: Count of transactions with payment_status = 'failed'.
