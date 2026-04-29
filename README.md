@@ -91,32 +91,34 @@ Running `dbt test` after `dbt run` validates every model. If any test fails, the
 
 By default, dbt tests run a full-table scan. On a fact table with years of history in production, a `not_null` test on `order_id` would scan every partition in Athena — expensive and slow. The fix is a `where` config that limits every test to a single partition.
 
-The `macros/current_march_partition.sql` macro generates the filter:
+The filter expression is:
 
 ```sql
 order_year = extract(year from current_date)
 and order_month = 3
 ```
 
-Using `extract(year from current_date)` keeps the year dynamic so the macro doesn't need updating as calendar years advance. March is hardcoded because that's where the data lives (dataset ends 2026-03-02).
+Using `extract(year from current_date)` keeps the year dynamic so it doesn't need updating as calendar years advance. March is hardcoded because that's where the data lives (dataset ends 2026-03-02).
 
-The config is applied at the model level in the YAML, which cascades to all tests defined on that model:
+The logic is documented in `macros/current_march_partition.sql`, but the expression is written inline in the YAML `where` configs rather than calling the macro. dbt does not make custom project macros available when rendering `where` config values in property files — the config is resolved during YAML parsing before the macro index loads, causing a compilation error if a macro is referenced there.
+
+The config is applied at the model level in the YAML, which cascades to all tests on that model:
 
 ```yaml
 - name: stg_orders
   config:
-    where: "{{ current_march_partition('order_year', 'order_month') }}"
+    where: "order_year = extract(year from current_date) and order_month = 3"
 ```
 
 Applied to the four partitioned fact tables and their corresponding marts:
 
-| Model | Partition columns | Macro call |
+| Model | Partition columns | Where expression |
 |---|---|---|
-| `stg_orders` | `order_year`, `order_month` | `current_march_partition('order_year', 'order_month')` |
-| `stg_order_items` | `order_year`, `order_month` | `current_march_partition('order_year', 'order_month')` |
-| `stg_payments` | `payment_year`, `payment_month` | `current_march_partition('payment_year', 'payment_month')` |
-| `stg_shipments` | `shipped_year`, `shipped_month` | `current_march_partition('shipped_year', 'shipped_month')` |
-| `monthly_revenue_trend` | `order_year`, `order_month` | `current_march_partition('order_year', 'order_month')` |
+| `stg_orders` | `order_year`, `order_month` | `order_year = extract(year from current_date) and order_month = 3` |
+| `stg_order_items` | `order_year`, `order_month` | `order_year = extract(year from current_date) and order_month = 3` |
+| `stg_payments` | `payment_year`, `payment_month` | `payment_year = extract(year from current_date) and payment_month = 3` |
+| `stg_shipments` | `shipped_year`, `shipped_month` | `shipped_year = extract(year from current_date) and shipped_month = 3` |
+| `monthly_revenue_trend` | `order_year`, `order_month` | `order_year = extract(year from current_date) and order_month = 3` |
 
 Dimension tables (`stg_customers`, `stg_products`) are not partitioned and scan the full table, which is acceptable because dimension tables are small by nature.
 
