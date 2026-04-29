@@ -1,7 +1,9 @@
 select
     payment_method,
     count(*) as total_transactions,
-    sum(case when payment_status = 'completed' then 1 else 0 end) as completed_count,
+    sum(
+        case when payment_status = 'completed' then 1 else 0 end
+    ) as completed_count,
     sum(case when payment_status = 'failed' then 1 else 0 end) as failed_count,
     sum(case when payment_status = 'refunded' then 1 else 0 end) as refunded,
     round(
