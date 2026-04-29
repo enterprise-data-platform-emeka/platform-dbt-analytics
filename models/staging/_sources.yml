@@ -51,6 +51,8 @@ sources:
               - freshness_relative_to_reference:
                   reference_date: '2026-03-02 23:59:59'
                   warn_after_hours: 24
+                  config:
+                    enabled: "{{ target.name != 'local' }}"
 
       - name: products
         identifier: dim_product
@@ -92,6 +94,8 @@ sources:
               - freshness_relative_to_reference:
                   reference_date: '2026-03-02 23:59:59'
                   warn_after_hours: 24
+                  config:
+                    enabled: "{{ target.name != 'local' }}"
           - name: order_status
             description: >
               Current status of the order. Expected values: pending, processing,
@@ -154,6 +158,8 @@ sources:
               - freshness_relative_to_reference:
                   reference_date: '2026-03-02 23:59:59'
                   warn_after_hours: 24
+                  config:
+                    enabled: "{{ target.name != 'local' }}"
           - name: payment_year
             description: Partition column. Year the payment was processed.
           - name: payment_month
@@ -181,6 +187,8 @@ sources:
               - freshness_relative_to_reference:
                   reference_date: '2026-03-02 23:59:59'
                   warn_after_hours: 24
+                  config:
+                    enabled: "{{ target.name != 'local' }}"
           - name: delivered_date
             description: Date the package was delivered. Null if not yet delivered.
           - name: delivery_days
