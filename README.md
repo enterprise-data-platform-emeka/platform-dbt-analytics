@@ -124,7 +124,7 @@ Dimension tables (`stg_customers`, `stg_products`) are not partitioned and scan 
 
 ### Unit tests — not currently implemented
 
-dbt 1.8 introduced native unit testing: you define mock input data and expected output rows in YAML, and dbt validates the SQL logic without hitting the database. dbtf (dbt Fusion) extends this further with a faster Rust-based test runner.
+dbt 1.8 introduced native unit testing: mock input data and expected output rows are defined in YAML, and dbt validates the SQL logic without hitting the database. dbtf (dbt Fusion) extends this further with a faster Rust-based test runner.
 
 Neither works with `dbt-athena-community` today. The Athena adapter has not yet implemented the unit test protocol, so any attempt to run `dbt test --select test_type:unit` fails at the adapter level. This is a gap in the adapter, not in the dbt project or the SQL logic.
 
