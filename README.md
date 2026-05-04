@@ -408,3 +408,33 @@ The deploy step failing on a fresh environment is intentional. Silver tables mus
 ---
 
 **Next:** [platform-orchestration-mwaa-airflow](https://github.com/enterprise-data-platform-emeka/platform-orchestration-mwaa-airflow): with the individual Glue jobs and dbt models defined, the Airflow DAG on MWAA ties them together into an orchestrated end-to-end pipeline that runs on a schedule.
+
+---
+
+## Enterprise qualities
+
+### Data integrity
+
+**D2: Source freshness gate.** `models/staging/_sources.yml` defines `freshness_relative_to_reference` column tests on every Silver source table that has a timestamp column (fact_orders, fact_payments, fact_shipments, customers). These tests check that the latest data timestamp in Silver is within 24 hours of the reference cutoff date. The orchestration layer (both the MWAA DAG and `run_dbt.py` in Step Functions) runs `dbt test --select source:silver` before `dbt run`. If Silver is stale, the pipeline stops rather than producing Gold tables that look current but contain old data.
+
+**D3: Gold vs Silver row count validation.** After `dbt run`, the orchestration layer compares staging model row counts against Silver CloudWatch metrics. The counts come from dbt's `run_results.json` artifact (written by dbt run) and the `EDP/DataQuality / SilverRowCount` metrics published by the Glue jobs. No Athena `COUNT(*)` scan is needed. Any staging model that diverges from its Silver source by more than 5% fails the pipeline before `dbt test` runs. The 5% tolerance accounts for rows legitimately quarantined during Silver validation.
+
+**Built-in dbt tests.** Every mart model has `unique` and `not_null` tests on primary keys, `accepted_values` tests on categorical columns, and the custom `assert_positive_value` generic test on monetary columns. These run as `dbt test` after every `dbt run` in both CI and the live pipeline.
+
+---
+
+### Performance and scalability
+
+**Materialisation strategy.** Staging and intermediate models are views. They add no storage cost and are always current when queried. Only the seven mart tables are materialised as pre-computed tables, which makes BI tool queries fast without re-running aggregations on every request.
+
+**Apache Iceberg format.** All mart tables use Iceberg, which means schema evolution (adding or renaming a column) does not require dropping and recreating the table. Iceberg also supports time travel queries and partition evolution, both of which matter when the data schema changes over time.
+
+**Partition-aware queries.** Mart models filter on partition columns (order_year, order_month and equivalents) where possible. Athena scans only the relevant partitions rather than the full table, keeping query costs bounded as data volume grows.
+
+---
+
+### Testability
+
+The local DuckDB target lets me run `dbt run` and `dbt test` on fixture Parquet files without any AWS credentials. CI uses this target so every pull request validates model logic in under 2 minutes. The Athena target is used only in the deploy job, which runs against real Silver data in the dev environment.
+
+**Not yet implemented:** dbt unit tests for the dbt-athena-community adapter. The adapter does not yet support the dbt unit test protocol introduced in dbt 1.8, so model-level unit tests against mocked inputs are not available for Athena-targeted models.
