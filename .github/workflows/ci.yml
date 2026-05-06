@@ -16,14 +16,34 @@ name: CI
 on:
   push:
     branches: [main]
-    paths-ignore:
-      - '**.md'
-      - 'data/**'
+    paths:
+      - 'models/**'
+      - 'macros/**'
+      - 'tests/**'
+      - 'profiles/**'
+      - 'dbt_project.yml'
+      - 'packages.yml'
+      - 'package-lock.yml'
+      - 'Dockerfile'
+      - 'docker-compose.yml'
+      - 'Makefile'
+      - 'requirements*.txt'
+      - '.github/workflows/**'
   pull_request:
     branches: [main]
-    paths-ignore:
-      - '**.md'
-      - 'data/**'
+    paths:
+      - 'models/**'
+      - 'macros/**'
+      - 'tests/**'
+      - 'profiles/**'
+      - 'dbt_project.yml'
+      - 'packages.yml'
+      - 'package-lock.yml'
+      - 'Dockerfile'
+      - 'docker-compose.yml'
+      - 'Makefile'
+      - 'requirements*.txt'
+      - '.github/workflows/**'
 
 jobs:
   # --------------------------------------------------------------------------

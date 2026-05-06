@@ -349,9 +349,9 @@ Three jobs run in parallel:
 | dbt local | dbt deps + run + test + docs against DuckDB using Parquet fixtures from `data/silver/`. Catches SQL errors, schema mismatches, and test failures before any code reaches Athena. |
 | Docker build | Verifies the Dockerfile builds cleanly (no push in CI) |
 
-### On merge to main
+### After CI passes on main
 
-The deploy workflow triggers automatically after CI passes. It runs two jobs in sequence.
+Trigger the deploy workflow manually from GitHub Actions and choose the target environment. It runs two jobs in sequence.
 
 **Job 1: upload-dbt-to-s3** — syncs the dbt project to `s3://{mwaa-bucket}/dbt/platform-dbt-analytics/` using `aws s3 sync`. This takes seconds. No MWAA environment update is triggered. MWAA workers download the project from this S3 path at the start of every `gold_dbt_run` task, so dbt model changes take effect on the next DAG run with no wait.
 
