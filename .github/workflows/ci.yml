@@ -31,21 +31,34 @@ on:
       - '.github/workflows/**'
   pull_request:
     branches: [main]
-    paths:
-      - 'models/**'
-      - 'macros/**'
-      - 'tests/**'
-      - 'profiles/**'
-      - 'dbt_project.yml'
-      - 'packages.yml'
-      - 'package-lock.yml'
-      - 'Dockerfile'
-      - 'docker-compose.yml'
-      - 'Makefile'
-      - 'requirements*.txt'
-      - '.github/workflows/**'
+    # No path filter — CI runs on every PR so required checks always report.
 
 jobs:
+  changes:
+    name: Detect source changes
+    runs-on: ubuntu-latest
+    outputs:
+      source: ${{ steps.filter.outputs.source }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            source:
+              - 'models/**'
+              - 'macros/**'
+              - 'tests/**'
+              - 'profiles/**'
+              - 'dbt_project.yml'
+              - 'packages.yml'
+              - 'package-lock.yml'
+              - 'Dockerfile'
+              - 'docker-compose.yml'
+              - 'Makefile'
+              - 'requirements*.txt'
+              - '.github/workflows/**'
+
   # --------------------------------------------------------------------------
   # SQL lint: sqlfluff
   # Checks all SQL models for style and syntax issues.
@@ -55,6 +68,8 @@ jobs:
   lint:
     name: SQL lint (sqlfluff)
     runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.source == 'true'
 
     steps:
       - name: Checkout
@@ -83,6 +98,8 @@ jobs:
   dbt-local:
     name: dbt local (DuckDB)
     runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.source == 'true'
 
     env:
       DBT_PROFILES_DIR: profiles
@@ -132,6 +149,8 @@ jobs:
   build:
     name: Build Docker image
     runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.source == 'true'
 
     steps:
       - name: Checkout
