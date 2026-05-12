@@ -439,50 +439,58 @@
         <h2>dbt is the semantic bridge between clean data and business answers.</h2>
       </div>
       <div class="svg-frame">
-        <svg viewBox="0 0 1320 560" role="img" aria-label="Enterprise Data Platform architecture with dbt layer highlighted">
+        <svg viewBox="0 0 1320 520" role="img" aria-label="dbt semantic modeling path from Silver to Gold">
           <defs>
             <marker id="arrow-slate" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L9,3 z" fill="#344054"/></marker>
             <marker id="arrow-blue" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L9,3 z" fill="#2563eb"/></marker>
             <marker id="arrow-teal" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L9,3 z" fill="#0f766e"/></marker>
             <marker id="arrow-olive" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L9,3 z" fill="#556b2f"/></marker>
           </defs>
-          <rect width="1320" height="560" rx="30" fill="#fbfdff"/>
-          <text x="44" y="50" class="title" style="font-size:24px">End-to-end platform path</text>
-          <text x="44" y="78" class="sub" style="font-size:14px">The dbt layer receives Silver tables from Glue and turns them into Gold marts that are safe for stakeholder-facing analytics.</text>
+          <rect width="1320" height="520" rx="30" fill="#fbfdff"/>
+          <text x="44" y="50" class="title" style="font-size:24px">Silver-to-Gold semantic modeling path</text>
+          <text x="44" y="78" class="sub" style="font-size:14px">dbt starts after Glue. Its job is to turn clean operational Silver tables into documented, tested, business-facing Gold marts.</text>
 
-          <g><rect class="node node-blue" x="52" y="122" width="144" height="74" rx="18"/><text x="124" y="153" text-anchor="middle" class="title">PostgreSQL</text><text x="124" y="174" text-anchor="middle" class="sub">OLTP source</text></g>
-          <g><rect class="node node-amber" x="238" y="122" width="144" height="74" rx="18"/><text x="310" y="153" text-anchor="middle" class="title">DMS CDC</text><text x="310" y="174" text-anchor="middle" class="sub">Change capture</text></g>
-          <g><rect class="node node-amber" x="424" y="122" width="144" height="74" rx="18"/><text x="496" y="153" text-anchor="middle" class="title">Bronze S3</text><text x="496" y="174" text-anchor="middle" class="sub">Raw events</text></g>
-          <g><rect class="node node-teal" x="610" y="122" width="144" height="74" rx="18"/><text x="682" y="153" text-anchor="middle" class="title">Glue PySpark</text><text x="682" y="174" text-anchor="middle" class="sub">Silver jobs</text></g>
-          <g><rect class="node node-teal" x="796" y="122" width="144" height="74" rx="18"/><text x="868" y="153" text-anchor="middle" class="title">Silver S3</text><text x="868" y="174" text-anchor="middle" class="sub">Facts + dims</text></g>
-          <g><rect class="node node-dark" x="982" y="104" width="168" height="110" rx="22"/><text x="1066" y="145" text-anchor="middle" class="title white-text">dbt + Athena</text><text x="1066" y="168" text-anchor="middle" class="sub white-text">Model DAG</text><text x="1066" y="187" text-anchor="middle" class="sub white-text">Tests + docs</text></g>
-          <g><rect class="node node-olive" x="1190" y="122" width="94" height="74" rx="18"/><text x="1237" y="153" text-anchor="middle" class="title">Gold</text><text x="1237" y="174" text-anchor="middle" class="sub">Marts</text></g>
+          <rect x="54" y="130" width="244" height="250" rx="24" fill="#e7f6f3" stroke="#86d7cd"/>
+          <text x="84" y="166" class="title">Silver inputs</text>
+          <text x="84" y="190" class="sub">facts + dimensions from Glue</text>
+          <rect class="node" x="84" y="224" width="184" height="38" rx="12"/><text x="176" y="248" text-anchor="middle" class="tiny">fact_orders</text>
+          <rect class="node" x="84" y="276" width="184" height="38" rx="12"/><text x="176" y="300" text-anchor="middle" class="tiny">fact_payments</text>
+          <rect class="node" x="84" y="328" width="184" height="38" rx="12"/><text x="176" y="352" text-anchor="middle" class="tiny">dim_customer</text>
 
-          <g class="flow"><path class="hit" d="M196 159 H238"/><path class="line" d="M196 159 H238"/></g>
-          <g class="flow"><path class="hit" d="M382 159 H424"/><path class="line" d="M382 159 H424"/></g>
-          <g class="flow"><path class="hit" d="M568 159 H610"/><path class="line" d="M568 159 H610"/></g>
-          <g class="flow teal"><path class="hit" d="M754 159 H796"/><path class="line" d="M754 159 H796"/></g>
-          <g class="flow blue"><path class="hit" d="M940 159 H982"/><path class="line" d="M940 159 H982"/><text x="960" y="147" text-anchor="middle">input</text></g>
-          <g class="flow olive"><path class="hit" d="M1150 159 H1190"/><path class="line" d="M1150 159 H1190"/><text x="1170" y="147" text-anchor="middle">output</text></g>
+          <rect x="380" y="130" width="250" height="250" rx="24" fill="#ffffff" stroke="#d8e2ef"/>
+          <text x="410" y="166" class="title">Staging models</text>
+          <text x="410" y="190" class="sub">rename, cast, document</text>
+          <rect class="node node-blue" x="420" y="236" width="170" height="72" rx="18"/>
+          <text x="505" y="264" text-anchor="middle" class="small-title">stg_* views</text>
+          <text x="505" y="286" text-anchor="middle" class="sub">source cleanup</text>
 
-          <rect x="946" y="258" width="240" height="82" rx="20" fill="#fff" stroke="#d8e2ef"/>
-          <text x="1066" y="291" text-anchor="middle" class="title">dbt artifacts</text>
-          <text x="1066" y="314" text-anchor="middle" class="sub">manifest.json + catalog.json</text>
-          <g class="flow return"><path class="hit" d="M1066 214 V258"/><path class="line" d="M1066 214 V258"/></g>
+          <rect x="704" y="130" width="250" height="250" rx="24" fill="#f8fbff" stroke="#d8e2ef"/>
+          <text x="734" y="166" class="title">Business logic</text>
+          <text x="734" y="190" class="sub">joins, metrics, marts</text>
+          <rect class="node node-dark" x="744" y="224" width="170" height="88" rx="20"/>
+          <text x="829" y="256" text-anchor="middle" class="title white-text">dbt + Athena</text>
+          <text x="829" y="279" text-anchor="middle" class="sub white-text">model DAG</text>
+          <text x="829" y="298" text-anchor="middle" class="sub white-text">tests + docs</text>
 
-          <rect x="700" y="402" width="180" height="78" rx="18" fill="#fff" stroke="#d8e2ef"/>
-          <text x="790" y="433" text-anchor="middle" class="title">Streamlit UI</text><text x="790" y="454" text-anchor="middle" class="sub">Current frontend</text>
-          <rect x="928" y="402" width="180" height="78" rx="18" fill="#fff" stroke="#d8e2ef"/>
-          <text x="1018" y="433" text-anchor="middle" class="title">HTML dashboard</text><text x="1018" y="454" text-anchor="middle" class="sub">Custom frontend</text>
-          <rect x="1156" y="402" width="130" height="78" rx="18" fill="#fff" stroke="#d8e2ef"/>
-          <text x="1221" y="433" text-anchor="middle" class="title">Slack MCP</text><text x="1221" y="454" text-anchor="middle" class="sub">Chat entry</text>
-          <rect x="928" y="294" width="180" height="78" rx="18" fill="#eaf2ff" stroke="#9cc2ff"/>
-          <text x="1018" y="325" text-anchor="middle" class="title">FastAPI Agent</text><text x="1018" y="346" text-anchor="middle" class="sub">Gold schema context</text>
-          <g class="flow"><path class="hit" d="M1237 196 C1202 275 1132 314 1108 332"/><path class="line" d="M1237 196 C1202 275 1132 314 1108 332"/></g>
-          <g class="flow return"><path class="hit" d="M1066 340 C1054 358 1036 374 1018 402"/><path class="line" d="M1066 340 C1054 358 1036 374 1018 402"/></g>
-          <g class="flow"><path class="hit" d="M928 334 C868 354 818 380 790 402"/><path class="line" d="M928 334 C868 354 818 380 790 402"/></g>
-          <g class="flow"><path class="hit" d="M1018 372 V402"/><path class="line" d="M1018 372 V402"/></g>
-          <g class="flow"><path class="hit" d="M1108 334 C1158 356 1200 378 1221 402"/><path class="line" d="M1108 334 C1158 356 1200 378 1221 402"/></g>
+          <rect x="1028" y="130" width="244" height="250" rx="24" fill="#f1f5e9" stroke="#bdcda0"/>
+          <text x="1058" y="166" class="title">Gold outputs</text>
+          <text x="1058" y="190" class="sub">analytics-ready marts</text>
+          <rect class="node node-olive" x="1058" y="224" width="184" height="38" rx="12"/><text x="1150" y="248" text-anchor="middle" class="tiny">gold_customer_lifetime_value</text>
+          <rect class="node node-olive" x="1058" y="276" width="184" height="38" rx="12"/><text x="1150" y="300" text-anchor="middle" class="tiny">gold_sales_daily</text>
+          <rect class="node node-olive" x="1058" y="328" width="184" height="38" rx="12"/><text x="1150" y="352" text-anchor="middle" class="tiny">gold_payment_method_revenue</text>
+
+          <rect class="node node-blue" x="520" y="420" width="280" height="58" rx="18"/>
+          <text x="660" y="444" text-anchor="middle" class="small-title">dbt artifacts</text>
+          <text x="660" y="464" text-anchor="middle" class="sub">manifest.json + catalog.json</text>
+          <rect class="node" x="856" y="420" width="250" height="58" rx="18"/>
+          <text x="981" y="444" text-anchor="middle" class="small-title">Analytics agent context</text>
+          <text x="981" y="464" text-anchor="middle" class="sub">schema names and columns</text>
+
+          <g class="flow teal"><path class="hit" d="M298 255 H420"/><path class="line" d="M298 255 H420"/><text x="359" y="240" text-anchor="middle">read Silver</text></g>
+          <g class="flow"><path class="hit" d="M590 272 H744"/><path class="line" d="M590 272 H744"/><text x="667" y="257" text-anchor="middle">transform</text></g>
+          <g class="flow olive"><path class="hit" d="M914 272 H1058"/><path class="line" d="M914 272 H1058"/><text x="986" y="257" text-anchor="middle">write Gold</text></g>
+          <g class="flow return"><path class="hit" d="M829 312 V392 H660 V420"/><path class="line" d="M829 312 V392 H660 V420"/></g>
+          <g class="flow"><path class="hit" d="M800 449 H856"/><path class="line" d="M800 449 H856"/></g>
         </svg>
       </div>
       <div class="diagram-note">
