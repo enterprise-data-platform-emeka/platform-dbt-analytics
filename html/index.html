@@ -515,73 +515,76 @@
           </defs>
           <rect width="1320" height="650" rx="30" fill="#fbfdff"/>
           <text x="44" y="52" class="title" style="font-size:24px">dbt dependency graph</text>
-          <text x="44" y="80" class="sub" style="font-size:14px">Views keep the early layers cheap. Mart tables persist the expensive aggregations in Gold S3.</text>
+          <text x="44" y="80" class="sub" style="font-size:14px">The graph is easiest to read as three business paths after staging: orders, products, and delivery.</text>
 
-          <rect x="52" y="120" width="210" height="470" rx="26" fill="#e7f6f3" stroke="#86d7cd"/>
-          <text x="157" y="155" text-anchor="middle" class="title">Silver sources</text>
-          <rect x="310" y="120" width="210" height="470" rx="26" fill="#eaf2ff" stroke="#9cc2ff"/>
-          <text x="415" y="155" text-anchor="middle" class="title">Staging views</text>
-          <rect x="568" y="120" width="210" height="470" rx="26" fill="#fff6df" stroke="#f4c77a"/>
-          <text x="673" y="155" text-anchor="middle" class="title">Intermediate views</text>
-          <rect x="826" y="120" width="442" height="470" rx="26" fill="#f1f5e9" stroke="#bdcda0"/>
-          <text x="1047" y="155" text-anchor="middle" class="title">Gold mart tables</text>
+          <rect x="52" y="122" width="220" height="456" rx="26" fill="#e7f6f3" stroke="#86d7cd"/>
+          <text x="162" y="158" text-anchor="middle" class="title">Silver sources</text>
+          <rect x="320" y="122" width="220" height="456" rx="26" fill="#eaf2ff" stroke="#9cc2ff"/>
+          <text x="430" y="158" text-anchor="middle" class="title">Staging views</text>
+          <rect x="600" y="122" width="220" height="456" rx="26" fill="#fff6df" stroke="#f4c77a"/>
+          <text x="710" y="158" text-anchor="middle" class="title">Reusable joins</text>
+          <rect x="880" y="122" width="388" height="456" rx="26" fill="#f1f5e9" stroke="#bdcda0"/>
+          <text x="1074" y="158" text-anchor="middle" class="title">Gold marts</text>
 
-          <g>
-            <rect class="node" x="86" y="195" width="142" height="34" rx="11"/><text x="157" y="217" text-anchor="middle" class="small-title">customers</text>
-            <rect class="node node-blue" x="344" y="195" width="142" height="34" rx="11"/><text x="415" y="217" text-anchor="middle" class="small-title">stg_customers</text>
-            <g class="flow"><path class="hit" d="M228 212 H344"/><path class="line" d="M228 212 H344"/></g>
-          </g>
-          <g>
-            <rect class="node" x="86" y="252" width="142" height="34" rx="11"/><text x="157" y="274" text-anchor="middle" class="small-title">products</text>
-            <rect class="node node-blue" x="344" y="252" width="142" height="34" rx="11"/><text x="415" y="274" text-anchor="middle" class="small-title">stg_products</text>
-            <g class="flow"><path class="hit" d="M228 269 H344"/><path class="line" d="M228 269 H344"/></g>
-          </g>
-          <g>
-            <rect class="node" x="86" y="309" width="142" height="34" rx="11"/><text x="157" y="331" text-anchor="middle" class="small-title">orders</text>
-            <rect class="node node-blue" x="344" y="309" width="142" height="34" rx="11"/><text x="415" y="331" text-anchor="middle" class="small-title">stg_orders</text>
-            <g class="flow"><path class="hit" d="M228 326 H344"/><path class="line" d="M228 326 H344"/></g>
-          </g>
-          <g>
-            <rect class="node" x="86" y="366" width="142" height="34" rx="11"/><text x="157" y="388" text-anchor="middle" class="small-title">order_items</text>
-            <rect class="node node-blue" x="344" y="366" width="142" height="34" rx="11"/><text x="415" y="388" text-anchor="middle" class="small-title">stg_order_items</text>
-            <g class="flow"><path class="hit" d="M228 383 H344"/><path class="line" d="M228 383 H344"/></g>
-          </g>
-          <g>
-            <rect class="node" x="86" y="423" width="142" height="34" rx="11"/><text x="157" y="445" text-anchor="middle" class="small-title">payments</text>
-            <rect class="node node-blue" x="344" y="423" width="142" height="34" rx="11"/><text x="415" y="445" text-anchor="middle" class="small-title">stg_payments</text>
-            <g class="flow"><path class="hit" d="M228 440 H344"/><path class="line" d="M228 440 H344"/></g>
-          </g>
-          <g>
-            <rect class="node" x="86" y="480" width="142" height="34" rx="11"/><text x="157" y="502" text-anchor="middle" class="small-title">shipments</text>
-            <rect class="node node-blue" x="344" y="480" width="142" height="34" rx="11"/><text x="415" y="502" text-anchor="middle" class="small-title">stg_shipments</text>
-            <g class="flow"><path class="hit" d="M228 497 H344"/><path class="line" d="M228 497 H344"/></g>
-          </g>
+          <rect class="node" x="92" y="198" width="140" height="36" rx="12"/><text x="162" y="222" text-anchor="middle" class="small-title">customers</text>
+          <rect class="node" x="92" y="260" width="140" height="36" rx="12"/><text x="162" y="284" text-anchor="middle" class="small-title">products</text>
+          <rect class="node" x="92" y="322" width="140" height="36" rx="12"/><text x="162" y="346" text-anchor="middle" class="small-title">orders</text>
+          <rect class="node" x="92" y="384" width="140" height="36" rx="12"/><text x="162" y="408" text-anchor="middle" class="small-title">order_items</text>
+          <rect class="node" x="92" y="446" width="140" height="36" rx="12"/><text x="162" y="470" text-anchor="middle" class="small-title">payments</text>
+          <rect class="node" x="92" y="508" width="140" height="36" rx="12"/><text x="162" y="532" text-anchor="middle" class="small-title">shipments</text>
 
-          <rect class="node node-amber" x="602" y="256" width="142" height="54" rx="14"/><text x="673" y="279" text-anchor="middle" class="small-title">int_orders</text><text x="673" y="296" text-anchor="middle" class="tiny">customer + payment + ship</text>
-          <rect class="node node-amber" x="602" y="390" width="142" height="54" rx="14"/><text x="673" y="413" text-anchor="middle" class="small-title">int_product_sales</text><text x="673" y="430" text-anchor="middle" class="tiny">line item + product</text>
+          <rect class="node node-blue" x="360" y="198" width="140" height="36" rx="12"/><text x="430" y="222" text-anchor="middle" class="small-title">stg_customers</text>
+          <rect class="node node-blue" x="360" y="260" width="140" height="36" rx="12"/><text x="430" y="284" text-anchor="middle" class="small-title">stg_products</text>
+          <rect class="node node-blue" x="360" y="322" width="140" height="36" rx="12"/><text x="430" y="346" text-anchor="middle" class="small-title">stg_orders</text>
+          <rect class="node node-blue" x="360" y="384" width="140" height="36" rx="12"/><text x="430" y="408" text-anchor="middle" class="small-title">stg_order_items</text>
+          <rect class="node node-blue" x="360" y="446" width="140" height="36" rx="12"/><text x="430" y="470" text-anchor="middle" class="small-title">stg_payments</text>
+          <rect class="node node-blue" x="360" y="508" width="140" height="36" rx="12"/><text x="430" y="532" text-anchor="middle" class="small-title">stg_shipments</text>
 
-          <g class="flow blue"><path class="hit" d="M486 212 H540 V270 H602"/><path class="line" d="M486 212 H540 V270 H602"/></g>
-          <g class="flow blue"><path class="hit" d="M486 326 H552 V286 H602"/><path class="line" d="M486 326 H552 V286 H602"/></g>
-          <g class="flow blue"><path class="hit" d="M486 440 H540 V300 H602"/><path class="line" d="M486 440 H540 V300 H602"/></g>
-          <g class="flow blue"><path class="hit" d="M486 497 H528 V304 H602"/><path class="line" d="M486 497 H528 V304 H602"/></g>
-          <g class="flow teal"><path class="hit" d="M486 269 H552 V410 H602"/><path class="line" d="M486 269 H552 V410 H602"/></g>
-          <g class="flow teal"><path class="hit" d="M486 383 H540 V416 H602"/><path class="line" d="M486 383 H540 V416 H602"/></g>
+          <g class="flow"><path class="hit" d="M232 216 H360"/><path class="line" d="M232 216 H360"/></g>
+          <g class="flow"><path class="hit" d="M232 278 H360"/><path class="line" d="M232 278 H360"/></g>
+          <g class="flow"><path class="hit" d="M232 340 H360"/><path class="line" d="M232 340 H360"/></g>
+          <g class="flow"><path class="hit" d="M232 402 H360"/><path class="line" d="M232 402 H360"/></g>
+          <g class="flow"><path class="hit" d="M232 464 H360"/><path class="line" d="M232 464 H360"/></g>
+          <g class="flow"><path class="hit" d="M232 526 H360"/><path class="line" d="M232 526 H360"/></g>
 
-          <rect class="node node-olive" x="866" y="188" width="170" height="44" rx="14"/><text x="951" y="216" text-anchor="middle" class="small-title">monthly_revenue_trend</text>
-          <rect class="node node-olive" x="1058" y="188" width="170" height="44" rx="14"/><text x="1143" y="216" text-anchor="middle" class="small-title">revenue_by_country</text>
-          <rect class="node node-olive" x="866" y="258" width="170" height="44" rx="14"/><text x="951" y="286" text-anchor="middle" class="small-title">payment_methods</text>
-          <rect class="node node-olive" x="1058" y="258" width="170" height="44" rx="14"/><text x="1143" y="286" text-anchor="middle" class="small-title">customer_segments</text>
-          <rect class="node node-olive" x="866" y="382" width="170" height="44" rx="14"/><text x="951" y="410" text-anchor="middle" class="small-title">category_performance</text>
-          <rect class="node node-olive" x="1058" y="382" width="170" height="44" rx="14"/><text x="1143" y="410" text-anchor="middle" class="small-title">top_selling_products</text>
-          <rect class="node node-olive" x="960" y="488" width="190" height="44" rx="14"/><text x="1055" y="516" text-anchor="middle" class="small-title">carrier_delivery_performance</text>
+          <rect class="node node-amber" x="640" y="244" width="140" height="70" rx="16"/>
+          <text x="710" y="272" text-anchor="middle" class="small-title">int_orders</text>
+          <text x="710" y="293" text-anchor="middle" class="tiny">customer + order</text>
+          <text x="710" y="309" text-anchor="middle" class="tiny">payment + shipment</text>
+          <rect class="node node-amber" x="640" y="394" width="140" height="64" rx="16"/>
+          <text x="710" y="421" text-anchor="middle" class="small-title">int_product_sales</text>
+          <text x="710" y="442" text-anchor="middle" class="tiny">items + product</text>
 
-          <g class="flow olive"><path class="hit" d="M744 283 H805 V210 H866"/><path class="line" d="M744 283 H805 V210 H866"/></g>
-          <g class="flow olive"><path class="hit" d="M744 283 H805 V210 H1058"/><path class="line" d="M744 283 H805 V210 H1058"/></g>
-          <g class="flow olive"><path class="hit" d="M744 283 H866"/><path class="line" d="M744 283 H866"/></g>
-          <g class="flow olive"><path class="hit" d="M744 283 H1058"/><path class="line" d="M744 283 H1058"/></g>
-          <g class="flow olive"><path class="hit" d="M744 417 H805 V404 H866"/><path class="line" d="M744 417 H805 V404 H866"/></g>
-          <g class="flow olive"><path class="hit" d="M744 417 H805 V404 H1058"/><path class="line" d="M744 417 H805 V404 H1058"/></g>
-          <g class="flow olive"><path class="hit" d="M486 497 H560 V546 H960 V510"/><path class="line" d="M486 497 H560 V546 H960 V510"/></g>
+          <rect x="542" y="198" width="40" height="330" rx="14" fill="#eef4ff" stroke="#9cc2ff"/>
+          <text x="562" y="372" text-anchor="middle" class="tiny" transform="rotate(-90 562 372)">staging model inputs</text>
+          <g class="flow blue"><path class="hit" d="M500 216 H542"/><path class="line" d="M500 216 H542"/></g>
+          <g class="flow teal"><path class="hit" d="M500 278 H542"/><path class="line" d="M500 278 H542"/></g>
+          <g class="flow blue"><path class="hit" d="M500 340 H542"/><path class="line" d="M500 340 H542"/></g>
+          <g class="flow teal"><path class="hit" d="M500 402 H542"/><path class="line" d="M500 402 H542"/></g>
+          <g class="flow blue"><path class="hit" d="M500 464 H542"/><path class="line" d="M500 464 H542"/></g>
+          <g class="flow blue"><path class="hit" d="M500 526 H542"/><path class="line" d="M500 526 H542"/></g>
+          <g class="flow blue"><path class="hit" d="M582 282 H640"/><path class="line" d="M582 282 H640"/></g>
+          <g class="flow teal"><path class="hit" d="M582 426 H640"/><path class="line" d="M582 426 H640"/></g>
+
+          <rect x="870" y="205" width="354" height="120" rx="22" fill="rgba(85,107,47,.08)" stroke="#bdcda0"/>
+          <text x="1047" y="232" text-anchor="middle" class="small-title">Order and revenue marts</text>
+          <rect class="node node-olive" x="905" y="252" width="138" height="38" rx="13"/><text x="974" y="276" text-anchor="middle" class="tiny">monthly_revenue_trend</text>
+          <rect class="node node-olive" x="1056" y="252" width="138" height="38" rx="13"/><text x="1125" y="276" text-anchor="middle" class="tiny">revenue_by_country</text>
+          <rect class="node node-olive" x="905" y="294" width="138" height="38" rx="13"/><text x="974" y="318" text-anchor="middle" class="tiny">payment_methods</text>
+          <rect class="node node-olive" x="1056" y="294" width="138" height="38" rx="13"/><text x="1125" y="318" text-anchor="middle" class="tiny">customer_segments</text>
+
+          <rect x="870" y="370" width="354" height="88" rx="22" fill="rgba(85,107,47,.08)" stroke="#bdcda0"/>
+          <text x="1047" y="397" text-anchor="middle" class="small-title">Product marts</text>
+          <rect class="node node-olive" x="905" y="414" width="138" height="38" rx="13"/><text x="974" y="438" text-anchor="middle" class="tiny">category_performance</text>
+          <rect class="node node-olive" x="1056" y="414" width="138" height="38" rx="13"/><text x="1125" y="438" text-anchor="middle" class="tiny">top_selling_products</text>
+
+          <rect x="870" y="500" width="354" height="58" rx="22" fill="rgba(85,107,47,.08)" stroke="#bdcda0"/>
+          <text x="1047" y="525" text-anchor="middle" class="small-title">Delivery mart</text>
+          <text x="1047" y="545" text-anchor="middle" class="tiny">carrier_delivery_performance</text>
+
+          <g class="flow olive"><path class="hit" d="M780 282 H870"/><path class="line" d="M780 282 H870"/></g>
+          <g class="flow olive"><path class="hit" d="M780 426 H870"/><path class="line" d="M780 426 H870"/></g>
+          <g class="flow olive"><path class="hit" d="M500 526 H600 V529 H870"/><path class="line" d="M500 526 H600 V529 H870"/></g>
         </svg>
       </div>
       <div class="diagram-note">
