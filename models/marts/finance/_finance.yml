@@ -27,8 +27,6 @@ models:
         description: total_revenue divided by total_orders. Null-safe via nullif.
 
   - name: monthly_revenue_trend
-    config:
-      where: "order_year = extract(year from current_date) and order_month = 3"
     description: >
       Answers: "How is revenue trending month over month?"
       One row per year-month combination. Covers all orders regardless of

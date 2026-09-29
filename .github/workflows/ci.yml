@@ -116,6 +116,9 @@ jobs:
       - name: Install dbt dependencies
         run: pip install --no-cache-dir -r requirements.txt
 
+      - name: Payment retry grain regression
+        run: python -m unittest discover -s tests/python
+
       - name: dbt deps — download packages
         run: dbt deps --profiles-dir profiles --profile edp_analytics --target local
 

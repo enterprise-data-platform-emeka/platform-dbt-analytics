@@ -49,8 +49,8 @@ sources:
             description: Date the customer account was created in the source system.
             tests:
               - freshness_relative_to_reference:
-                  reference_date: '2026-03-02 23:59:59'
-                  warn_after_hours: 24
+                  reference_date: "{{ var('seed_reference_date', '2026-08-31 23:59:59') }}"
+                  warn_after_hours: 720
                   config:
                     enabled: "{{ target.name != 'local' }}"
 
@@ -92,8 +92,8 @@ sources:
             description: Date the order was placed.
             tests:
               - freshness_relative_to_reference:
-                  reference_date: '2026-03-02 23:59:59'
-                  warn_after_hours: 24
+                  reference_date: "{{ var('seed_reference_date', '2026-08-31 23:59:59') }}"
+                  warn_after_hours: 720
                   config:
                     enabled: "{{ target.name != 'local' }}"
           - name: order_status
@@ -156,8 +156,8 @@ sources:
             description: Date the payment was processed.
             tests:
               - freshness_relative_to_reference:
-                  reference_date: '2026-03-02 23:59:59'
-                  warn_after_hours: 24
+                  reference_date: "{{ var('seed_reference_date', '2026-08-31 23:59:59') }}"
+                  warn_after_hours: 720
                   config:
                     enabled: "{{ target.name != 'local' }}"
           - name: payment_year
@@ -185,8 +185,8 @@ sources:
             description: Date the package left the warehouse.
             tests:
               - freshness_relative_to_reference:
-                  reference_date: '2026-03-02 23:59:59'
-                  warn_after_hours: 24
+                  reference_date: "{{ var('seed_reference_date', '2026-08-31 23:59:59') }}"
+                  warn_after_hours: 720
                   config:
                     enabled: "{{ target.name != 'local' }}"
           - name: delivered_date

@@ -440,3 +440,8 @@ The deploy step failing on a fresh environment is intentional. Silver tables mus
 The local DuckDB target lets me run `dbt run` and `dbt test` on fixture Parquet files without any AWS credentials. CI uses this target so every pull request validates model logic in under 2 minutes. The Athena target is used only in the deploy job, which runs against real Silver data in the dev environment.
 
 **Not yet implemented:** dbt unit tests for the dbt-athena-community adapter. The adapter does not yet support the dbt unit test protocol introduced in dbt 1.8, so model-level unit tests against mocked inputs are not available for Athena-targeted models.
+
+
+## Reproducible seed sessions
+
+The historical seed ends on 2026-09-01 (exclusive). Coverage tests use `seed_reference_date` (default `2026-08-31 23:59:59`) with a 30-day tolerance for sparse fixtures; this is not a live freshness SLA. Integrity tests cover all partitions rather than March only. The order enrichment view selects a completed/refunded payment over failed retries to preserve order grain; split captures and partial refunds require a separate financial contract.

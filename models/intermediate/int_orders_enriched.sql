@@ -11,6 +11,28 @@
 --   - LEFT JOIN on payments: cancelled or pending orders may have no payment.
 --   - LEFT JOIN on shipments: unshipped or cancelled orders have no shipment.
 
+with ranked_payments as (
+    select
+        *,
+        row_number() over (
+            partition by order_id
+            order by
+                case
+                    when
+                        payment_status in ('completed', 'refunded')
+                        then 0
+                    else 1
+                end,
+                payment_date desc, payment_id desc
+        ) as attempt_rank
+    from {{ ref('stg_payments') }}
+),
+
+settled_payment as (
+    select * from ranked_payments
+    where attempt_rank = 1
+)
+
 select
     o.order_id,
     o.customer_id,
@@ -42,5 +64,5 @@ select
 
 from {{ ref('stg_orders') }} as o
 left join {{ ref('stg_customers') }} as c on o.customer_id = c.customer_id
-left join {{ ref('stg_payments') }} as p on o.order_id = p.order_id
+left join settled_payment as p on o.order_id = p.order_id
 left join {{ ref('stg_shipments') }} as s on o.order_id = s.order_id
