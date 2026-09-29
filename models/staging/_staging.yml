@@ -86,8 +86,6 @@ models:
   # stg_orders
   # ----------------------------------------------------------------------------
   - name: stg_orders
-    config:
-      where: "order_year = extract(year from current_date) and order_month = 3"
     description: >
       Staging model for order header records. Passes through all columns from
       Silver with no transformation. Partition columns (order_year, order_month)
@@ -133,8 +131,6 @@ models:
   # stg_order_items
   # ----------------------------------------------------------------------------
   - name: stg_order_items
-    config:
-      where: "order_year = extract(year from current_date) and order_month = 3"
     description: >
       Staging model for order line items. One row per product per order.
       The `line_total` column is pre-computed by the Glue Silver job (quantity * unit_price)
@@ -197,8 +193,6 @@ models:
   # stg_payments
   # ----------------------------------------------------------------------------
   - name: stg_payments
-    config:
-      where: "payment_year = extract(year from current_date) and payment_month = 3"
     description: >
       Staging model for payment transactions. Renames `method` to `payment_method`
       and `status` to `payment_status` to avoid ambiguity when joined with other
@@ -258,8 +252,6 @@ models:
   # stg_shipments
   # ----------------------------------------------------------------------------
   - name: stg_shipments
-    config:
-      where: "shipped_year = extract(year from current_date) and shipped_month = 3"
     description: >
       Staging model for shipment records tracking physical fulfilment of orders.
       The `delivery_days` column is pre-computed by the Glue Silver job and passed

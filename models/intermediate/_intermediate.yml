@@ -15,6 +15,7 @@ models:
     columns:
       - name: order_id
         description: Primary key inherited from stg_orders.
+        tests: [not_null, unique]
 
       - name: customer_id
         description: Foreign key to stg_customers.
